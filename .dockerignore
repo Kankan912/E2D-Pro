@@ -1,0 +1,36 @@
+# Bun
+node_modules
+bun.lock
+
+# Build
+dist
+.vite
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Editor
+.vscode
+.idea
+.DS_Store
+
+# Tests
+coverage
+playwright-report
+test-results
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Docs
+*.md
+docs
+
+# Git
+.git
+.gitignore
+.github

@@ -1,0 +1,67 @@
+project_id = "piyvinbuxpnquwzyugdj"
+
+# =============================================================================
+# Edge Functions — JWT verification policy (Audit Fix #15 / P2)
+# =============================================================================
+# Since the audit, ALL sensitive edge functions require a valid JWT.
+# Only genuinely-public functions (contact form with CAPTCHA, public payment
+# config, public donations stats) keep verify_jwt = false.
+# =============================================================================
+
+[functions.create-user-account]
+verify_jwt = true
+
+[functions.donations-stats]
+verify_jwt = false
+
+[functions.get-payment-config]
+verify_jwt = false
+
+[functions.process-adhesion]
+verify_jwt = true
+
+[functions.send-email]
+verify_jwt = true
+
+[functions.send-contact-notification]
+verify_jwt = false
+
+[functions.send-presence-reminders]
+verify_jwt = true
+
+[functions.send-reunion-cr]
+verify_jwt = true
+
+[functions.send-campaign-emails]
+verify_jwt = true
+
+[functions.send-cotisation-reminders]
+verify_jwt = true
+
+[functions.send-pret-echeance-reminders]
+verify_jwt = true
+
+[functions.send-sanction-notification]
+verify_jwt = true
+
+[functions.sync-user-emails]
+verify_jwt = true
+
+[functions.update-email-config]
+verify_jwt = true
+
+[functions.send-calendrier-beneficiaires]
+verify_jwt = true
+
+[functions.send-loan-notification]
+verify_jwt = true
+
+[functions.send-user-credentials]
+verify_jwt = true
+
+[functions.test-email-configuration]
+verify_jwt = true
+
+# NEW (Audit Fix #47): public health-check endpoint.
+[functions.health]
+verify_jwt = false

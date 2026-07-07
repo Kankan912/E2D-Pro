@@ -1,0 +1,54 @@
+# =============================================================================
+# E2D Connect Gateway — docker-compose (dev + prod preview) (Audit Fix #48)
+# =============================================================================
+# Usage:
+#   docker compose up dev        # local dev server with HMR
+#   docker compose up --build app  # production preview (nginx + dist)
+# =============================================================================
+
+services:
+  # ---- Dev server (Vite HMR on :8080) ----
+  dev:
+    image: oven/bun:1.1.42
+    working_dir: /app
+    command: sh -c "bun install && bun run dev -- --host 0.0.0.0"
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - bun_cache:/root/.bun/install/cache
+    environment:
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
+      - VITE_SENTRY_DSN=${VITE_SENTRY_DSN}
+      - VITE_CAPTCHA_SITE_KEY=${VITE_CAPTCHA_SITE_KEY}
+
+  # ---- Production preview (nginx + built dist) ----
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+        - VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
+        - VITE_SENTRY_DSN=${VITE_SENTRY_DSN}
+        - VITE_CAPTCHA_SITE_KEY=${VITE_CAPTCHA_SITE_KEY}
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # ---- Supabase local (optional, for full-stack dev) ----
+  # Requires: `supabase start` separately (uses its own docker-compose)
+  # Uncomment to wire the SPA to a local Supabase stack.
+  # supabase:
+  #   image:supabase/postgres:15.6.1
+  #   ...
+
+volumes:
+  bun_cache:

@@ -102,12 +102,26 @@ class Logger {
   }
 
   /**
-   * Placeholder pour intégration Sentry
-   * TODO: Installer @sentry/browser et configurer
+   * Sentry integration (Audit Fix #46 / P2).
+   * Sentry is initialized in src/main.tsx via initSentry().
+   * Here we forward captured errors to the real Sentry SDK.
    */
   private sendToSentry(level: string, message: string, error?: unknown, context?: LogContext) {
-    if (this.isDevelopment) {
-      console.error('[SENTRY PLACEHOLDER]', { level, message, error, context });
+    try {
+      // Dynamic import to avoid hard dependency if Sentry isn't configured
+      import('@sentry/react').then((Sentry) => {
+        if (level === 'error' && error instanceof Error) {
+          Sentry.captureException(error, {
+            extra: { message, context: context ?? {} },
+          });
+        } else {
+          Sentry.captureMessage(message, level as 'info' | 'warning' | 'error');
+        }
+      }).catch(() => {
+        // Sentry not available — silent fallback (console already logged)
+      });
+    } catch {
+      // Never let logging crash the app
     }
   }
 

@@ -61,7 +61,7 @@ git clone https://github.com/VOTRE-COMPTE/E2D.git
 6. **Créez les tables de la base de données** :
    - Allez dans le menu de gauche → **SQL Editor**
    - Cliquez sur "New query"
-   - Ouvrez le fichier `supabase/migrations/20260722000001_remediation_audit_p0_p1.sql` de votre projet avec un éditeur de texte (Bloc-notes, VS Code)
+   - Ouvrez le fichier `FRESH_INSTALL_COMPLETE.sql` à la RACINE de votre projet avec le Bloc-notes
    - **Copiez tout le contenu** et collez-le dans le SQL Editor
    - Cliquez sur **RUN** (Exécuter)
    - Vous devriez voir "Success" ✅

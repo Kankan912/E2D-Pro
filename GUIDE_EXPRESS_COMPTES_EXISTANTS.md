@@ -48,7 +48,7 @@ anon public key    : eyJhbGciOi...VOTRE-CLÉ-ANON...
 
 > ⚠️ **IMPORTANT** : Ne copiez JAMAIS la clé `service_role` — elle est secrète et ne doit pas être dans le code.
 
-### 1.3 Créer les tables de la base de données
+### 1.3 Créer toutes les tables + appliquer la remédiation
 
 1. Dans le menu de gauche, cliquez sur **SQL Editor**
 2. Cliquez sur **"New query"**

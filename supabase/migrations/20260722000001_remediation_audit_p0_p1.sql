@@ -185,6 +185,15 @@ DECLARE
   ];
 BEGIN
   FOREACH tbl IN ARRAY core_tables LOOP
+    -- RESILIENCE: only apply policies if the table exists.
+    -- This allows the migration to run on fresh projects where some
+    -- tables may not have been created yet (they'll be created by
+    -- earlier migrations or the FRESH_INSTALL_COMPLETE.sql file).
+    IF to_regclass(format('public.%I', tbl)) IS NULL THEN
+      RAISE NOTICE 'Skipping %: table does not exist yet', tbl;
+      CONTINUE;
+    END IF;
+
     -- Drop existing admin/manage policies if present (idempotent).
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I;', tbl || '_admin_all', tbl);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I;', tbl || '_admin_manage', tbl);
@@ -220,6 +229,11 @@ DECLARE
   t TEXT;
 BEGIN
   FOREACH t IN ARRAY self_tables LOOP
+    -- RESILIENCE: skip if table doesn't exist yet.
+    IF to_regclass(format('public.%I', t)) IS NULL THEN
+      RAISE NOTICE 'Skipping %: table does not exist yet', t;
+      CONTINUE;
+    END IF;
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I;', t || '_self_read', t);
     EXECUTE format($f$
       CREATE POLICY %1$I ON public.%2$I

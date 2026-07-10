@@ -8,7 +8,7 @@ import { componentTagger } from "lovable-tagger";
  *
  * - `server.host` restricted to localhost (was `::` = all interfaces).
  * - `build.rollupOptions.output.manualChunks` splits heavy vendors so the
- *   initial bundle stays lean (jspdf/xlsx/recharts/Radix in separate chunks).
+ *   initial bundle stays lean (jspdf/exceljs/recharts/Radix in separate chunks).
  * - `build.sourcemap` enabled for Sentry stack traces (hidden in production
  *   to avoid exposing source to the browser).
  * - `define` injects `APP_VERSION` for observability.

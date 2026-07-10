@@ -227,7 +227,7 @@ WHERE NOT EXISTS (
 -- ============================================================
 -- 9. TRIGGER: Auto-create default workflow for new associations
 -- ============================================================
-CREATE OR REPLACE FUNCTION public trg_aide_workflow_create_steps()
+CREATE OR REPLACE FUNCTION public.trg_aide_workflow_create_steps()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER

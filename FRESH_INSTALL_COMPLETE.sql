@@ -1,22 +1,667 @@
 -- =============================================================================
--- E2D CONNECT GATEWAY — FRESH INSTALL COMPLETE SQL
+-- E2D CONNECT GATEWAY — FRESH INSTALL COMPLETE SQL (v2)
 -- =============================================================================
--- Ce fichier contient TOUTES les migrations (131) + la remédiation,
--- dans l'ordre chronologique, prêtes à exécuter en UNE SEULE FOIS
--- dans le SQL Editor de Supabase sur un projet NEUF.
+-- Ce fichier contient:
+--   1. SCHEMA_FOUNDATION.sql (crée toutes les tables de base manquantes)
+--   2. TOUTES les migrations (131) dans l'ordre chronologique
+--   3. La migration de remédiation (RLS, index, sécurité)
 -- 
--- Instructions :
+-- Instructions:
 --   1. Ouvrez Supabase → SQL Editor → New query
 --   2. Copiez-collez TOUT le contenu de ce fichier
 --   3. Cliquez sur RUN
---   4. Attendez le message 'Success' (peut prendre 1-2 minutes)
---   5. Des NOTICE en jaune sont NORMALES (table skipped, etc.)
+--   4. Attendez le message 'Success' (peut prendre 2-3 minutes)
+--   5. Des NOTICE en jaune sont NORMALES
+-- =============================================================================
+
+-- ============================================================================
+-- PART 1: SCHEMA FOUNDATION (creates all base tables)
+-- ============================================================================
+
+-- =============================================================================
+-- E2D CONNECT GATEWAY — SCHEMA FOUNDATION
+-- =============================================================================
+-- Ce fichier crée TOUTES les tables de base manquantes qui étaient créées
+-- manuellement via l'UI Supabase lors du développement initial.
+--
+-- Sans ce fichier, les migrations échouent avec "relation does not exist".
+--
+-- À exécuter AVANT FRESH_INSTALL_COMPLETE.sql (ou utiliser le fichier
+-- FRESH_INSTALL_COMPLETE.sql qui inclut déjà ce schéma au début).
+-- =============================================================================
+
+BEGIN;
+
+-- Extension pgcrypto (pour gen_random_uuid)
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- =============================================================================
+-- 1. ROLES (nécessaire pour user_roles)
+-- =============================================================================
+CREATE TYPE IF NOT EXISTS public.app_role AS ENUM (
+  'membre', 'admin', 'tresorier', 'secretaire', 'responsable_sportif',
+  'super_admin', 'administrateur', 'secretaire_general'
+);
+
+CREATE TABLE IF NOT EXISTS public.roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT UNIQUE NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Seed initial roles
+INSERT INTO public.roles (name, description) VALUES
+  ('super_admin', 'Super administrateur (toutes permissions)'),
+  ('administrateur', 'Administrateur d''association'),
+  ('tresorier', 'Trésorier (gestion financière)'),
+  ('secretaire_general', 'Secrétaire général (communication)'),
+  ('secretaire', 'Secrétaire'),
+  ('membre', 'Membre simple'),
+  ('public', 'Visiteur non authentifié')
+ON CONFLICT (name) DO NOTHING;
+
+-- =============================================================================
+-- 2. ROLE_PERMISSIONS
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.role_permissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  role_id UUID REFERENCES public.roles(id) ON DELETE CASCADE NOT NULL,
+  resource TEXT NOT NULL,
+  permission TEXT NOT NULL,
+  granted BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(role_id, resource, permission)
+);
+
+-- =============================================================================
+-- 3. ASSOCIATIONS (déjà créée par migration, mais IF NOT EXISTS par sécurité)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.associations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nom TEXT NOT NULL,
+  code TEXT UNIQUE,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Association par défaut
+INSERT INTO public.associations (id, nom, code)
+VALUES ('00000000-0000-0000-0000-000000000001', 'E2D Connect', 'E2D')
+ON CONFLICT DO NOTHING;
+
+-- =============================================================================
+-- 4. CONFIGURATIONS (clé-valeur pour paramètres app)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.configurations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cle TEXT UNIQUE NOT NULL,
+  valeur TEXT,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 5. EXERCICES (périodes financières)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.exercices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nom TEXT NOT NULL,
+  date_debut DATE NOT NULL,
+  date_fin DATE NOT NULL,
+  statut TEXT DEFAULT 'actif' CHECK (statut IN ('actif', 'clos', 'preparation')),
+  taux_interet_prets NUMERIC DEFAULT 0,
+  plafond_fond_caisse NUMERIC DEFAULT 0,
+  croissance_fond_caisse NUMERIC DEFAULT 0,
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 6. MEMBRES (table centrale — référencée partout)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.membres (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  nom TEXT NOT NULL,
+  prenom TEXT NOT NULL,
+  telephone TEXT NOT NULL DEFAULT '',
+  email TEXT,
+  photo_url TEXT,
+  fonction TEXT,
+  equipe TEXT,
+  equipe_e2d TEXT,
+  equipe_phoenix TEXT,
+  equipe_jaune_rouge TEXT,
+  est_membre_e2d BOOLEAN DEFAULT true,
+  est_adherent_phoenix BOOLEAN DEFAULT false,
+  statut TEXT DEFAULT 'actif' CHECK (statut IN ('actif', 'inactif', 'suspendu', 'supprime')),
+  date_inscription DATE DEFAULT CURRENT_DATE,
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 7. COTISATIONS_TYPES
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.cotisations_types (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nom TEXT NOT NULL,
+  description TEXT,
+  montant_defaut NUMERIC DEFAULT 0,
+  obligatoire BOOLEAN DEFAULT false,
+  type_saisie TEXT DEFAULT 'manuel',
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 8. COTISATIONS
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.cotisations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  membre_id UUID REFERENCES public.membres(id) ON DELETE CASCADE,
+  exercice_id UUID REFERENCES public.exercices(id) ON DELETE SET NULL,
+  reunion_id UUID,
+  type_cotisation_id UUID REFERENCES public.cotisations_types(id) ON DELETE SET NULL,
+  montant NUMERIC NOT NULL DEFAULT 0,
+  statut TEXT DEFAULT 'en_attente' CHECK (statut IN ('en_attente', 'paye', 'impaye', 'rembourse')),
+  date_paiement DATE,
+  justificatif_url TEXT,
+  notes TEXT,
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 9. EPARGNES (tontine)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.epargnes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  membre_id UUID NOT NULL REFERENCES public.membres(id) ON DELETE CASCADE,
+  exercice_id UUID REFERENCES public.exercices(id) ON DELETE SET NULL,
+  reunion_id UUID,
+  montant NUMERIC NOT NULL DEFAULT 0,
+  statut TEXT DEFAULT 'depot' CHECK (statut IN ('depot', 'retrait', 'actif', 'clos')),
+  date_depot DATE NOT NULL DEFAULT CURRENT_DATE,
+  notes TEXT,
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 10. PRETS
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.prets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  membre_id UUID NOT NULL REFERENCES public.membres(id) ON DELETE CASCADE,
+  exercice_id UUID REFERENCES public.exercices(id) ON DELETE SET NULL,
+  reunion_id UUID,
+  avaliste_id UUID REFERENCES public.membres(id) ON DELETE SET NULL,
+  montant NUMERIC NOT NULL DEFAULT 0,
+  taux_interet NUMERIC DEFAULT 0,
+  duree_mois INT,
+  montant_paye NUMERIC DEFAULT 0,
+  capital_paye NUMERIC DEFAULT 0,
+  interet_initial NUMERIC DEFAULT 0,
+  interet_paye NUMERIC DEFAULT 0,
+  montant_total_du NUMERIC DEFAULT 0,
+  dernier_interet NUMERIC DEFAULT 0,
+  reconductions INT DEFAULT 0,
+  date_pret DATE NOT NULL DEFAULT CURRENT_DATE,
+  echeance DATE NOT NULL,
+  statut TEXT DEFAULT 'en_cours' CHECK (statut IN ('en_cours', 'rembourse', 'en_retard', 'annule')),
+  justificatif_url TEXT,
+  notes TEXT,
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 11. PRETS_PAIEMENTS
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.prets_paiements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pret_id UUID NOT NULL REFERENCES public.prets(id) ON DELETE CASCADE,
+  montant_paye NUMERIC NOT NULL DEFAULT 0,
+  date_paiement DATE NOT NULL DEFAULT CURRENT_DATE,
+  mode_paiement TEXT DEFAULT 'especes',
+  type_paiement TEXT DEFAULT 'capital',
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 12. REUNIONS
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.reunions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  date_reunion DATE NOT NULL,
+  type_reunion TEXT,
+  sujet TEXT,
+  ordre_du_jour TEXT,
+  lieu_description TEXT,
+  lieu_membre_id UUID REFERENCES public.membres(id) ON DELETE SET NULL,
+  beneficiaire_id UUID,
+  compte_rendu_url TEXT,
+  seuil_rappel_presence INT DEFAULT 0,
+  taux_presence NUMERIC DEFAULT 0,
+  statut TEXT DEFAULT 'planifiee' CHECK (statut IN ('planifiee', 'ouverte', 'cloturee', 'annulee')),
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 13. REUNIONS_PRESENCES (déjà créée par migration, IF NOT EXISTS par sécurité)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.reunions_presences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reunion_id UUID NOT NULL REFERENCES public.reunions(id) ON DELETE CASCADE,
+  membre_id UUID NOT NULL REFERENCES public.membres(id) ON DELETE CASCADE,
+  present BOOLEAN DEFAULT false,
+  retard BOOLEAN DEFAULT false,
+  excuse BOOLEAN DEFAULT false,
+  motif_absence TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(reunion_id, membre_id)
+);
+
+-- =============================================================================
+-- 14. TYPES_SANCTIONS (nécessaire pour sanctions)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.types_sanctions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nom TEXT NOT NULL,
+  description TEXT,
+  montant_defaut NUMERIC DEFAULT 0,
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 15. SANCTIONS
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.sanctions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  membre_id UUID NOT NULL REFERENCES public.membres(id) ON DELETE CASCADE,
+  type_sanction_id UUID NOT NULL REFERENCES public.types_sanctions(id) ON DELETE RESTRICT,
+  reunion_id UUID REFERENCES public.reunions(id) ON DELETE SET NULL,
+  montant NUMERIC NOT NULL DEFAULT 0,
+  montant_paye NUMERIC DEFAULT 0,
+  motif TEXT,
+  contexte_sanction TEXT,
+  statut TEXT DEFAULT 'non_paye' CHECK (statut IN ('non_paye', 'paye', 'annule')),
+  date_sanction DATE NOT NULL DEFAULT CURRENT_DATE,
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 16. REUNIONS_SANCTIONS (liaison reunion ↔ sanction, déjà créée par migration)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.reunions_sanctions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reunion_id UUID NOT NULL REFERENCES public.reunions(id) ON DELETE CASCADE,
+  sanction_id UUID NOT NULL REFERENCES public.sanctions(id) ON DELETE CASCADE,
+  statut TEXT DEFAULT 'non_paye',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(reunion_id, sanction_id)
+);
+
+-- =============================================================================
+-- 17. FOND_CAISSE_OPERATIONS
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.fond_caisse_operations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  exercice_id UUID REFERENCES public.exercices(id) ON DELETE SET NULL,
+  reunion_id UUID REFERENCES public.reunions(id) ON DELETE SET NULL,
+  operateur_id UUID NOT NULL REFERENCES public.membres(id) ON DELETE RESTRICT,
+  beneficiaire_id UUID REFERENCES public.membres(id) ON DELETE SET NULL,
+  libelle TEXT NOT NULL,
+  montant NUMERIC NOT NULL DEFAULT 0,
+  type_operation TEXT NOT NULL CHECK (type_operation IN ('entree', 'sortie')),
+  categorie TEXT,
+  date_operation DATE NOT NULL DEFAULT CURRENT_DATE,
+  justificatif_url TEXT,
+  notes TEXT,
+  source_id UUID,
+  source_table TEXT,
+  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  updated_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 18. NOTIFICATIONS_TEMPLATES
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.notifications_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT UNIQUE NOT NULL,
+  nom TEXT NOT NULL,
+  categorie TEXT NOT NULL,
+  template_sujet TEXT NOT NULL,
+  template_contenu TEXT NOT NULL,
+  email_expediteur TEXT,
+  variables_disponibles JSONB DEFAULT '{}',
+  description TEXT,
+  actif BOOLEAN DEFAULT true,
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 19. NOTIFICATIONS_CAMPAGNES
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.notifications_campagnes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nom TEXT NOT NULL,
+  description TEXT,
+  type_campagne TEXT DEFAULT 'email',
+  template_sujet TEXT NOT NULL,
+  template_contenu TEXT NOT NULL,
+  destinataires JSONB DEFAULT '[]',
+  nb_destinataires INT DEFAULT 0,
+  nb_envoyes INT DEFAULT 0,
+  nb_erreurs INT DEFAULT 0,
+  statut TEXT DEFAULT 'brouillon' CHECK (statut IN ('brouillon', 'planifiee', 'en_cours', 'envoyee', 'erreur')),
+  date_envoi_prevue TIMESTAMPTZ,
+  date_envoi_reelle TIMESTAMPTZ,
+  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 20. MESSAGES_CONTACT (formulaire de contact public)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.messages_contact (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nom TEXT NOT NULL,
+  email TEXT NOT NULL,
+  telephone TEXT,
+  objet TEXT NOT NULL,
+  message TEXT NOT NULL,
+  statut TEXT DEFAULT 'nouveau' CHECK (statut IN ('nouveau', 'lu', 'traite', 'archive')),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 21. DEMANDES_ADHESION (différent de adhesions)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.demandes_adhesion (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nom TEXT NOT NULL,
+  prenom TEXT NOT NULL,
+  email TEXT NOT NULL,
+  telephone TEXT,
+  motivation TEXT,
+  statut TEXT DEFAULT 'en_attente' CHECK (statut IN ('en_attente', 'approuvee', 'rejetee')),
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 22. REUNION_BENEFICIAIRES (calendrier tontine)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.reunion_beneficiaires (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reunion_id UUID NOT NULL REFERENCES public.reunions(id) ON DELETE CASCADE,
+  membre_id UUID NOT NULL REFERENCES public.membres(id) ON DELETE CASCADE,
+  montant_prevu NUMERIC DEFAULT 0,
+  montant_paye NUMERIC DEFAULT 0,
+  ordre INT DEFAULT 0,
+  statut TEXT DEFAULT 'planifie' CHECK (statut IN ('planifie', 'paye', 'reporte')),
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 23. COTISATIONS_MEMBRES (config cotisations par membre)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.cotisations_membres (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  membre_id UUID NOT NULL REFERENCES public.membres(id) ON DELETE CASCADE,
+  exercice_id UUID REFERENCES public.exercices(id) ON DELETE CASCADE,
+  type_cotisation_id UUID REFERENCES public.cotisations_types(id) ON DELETE CASCADE,
+  montant NUMERIC DEFAULT 0,
+  statut TEXT DEFAULT 'en_attente',
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 24. MATCH_PRESENCES (sport)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.match_presences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id UUID,
+  membre_id UUID NOT NULL REFERENCES public.membres(id) ON DELETE CASCADE,
+  present BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 25. PHOENIX_PRESENCES_ENTRAINEMENT (sport)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.phoenix_presences_entrainement (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  membre_id UUID NOT NULL REFERENCES public.membres(id) ON DELETE CASCADE,
+  date_entrainement DATE NOT NULL,
+  present BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 26. FICHIERS_JOINT (pièces jointes génériques)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.fichiers_joint (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nom TEXT NOT NULL,
+  url TEXT NOT NULL,
+  type_mime TEXT,
+  taille_octets BIGINT,
+  table_source TEXT,
+  source_id UUID,
+  uploaded_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 27. FOND_CAISSE_CLOTURES (clôtures périodiques)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.fond_caisse_clotures (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  exercice_id UUID REFERENCES public.exercices(id) ON DELETE CASCADE,
+  date_cloture DATE NOT NULL,
+  solde_final NUMERIC DEFAULT 0,
+  notes TEXT,
+  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 28. HISTORIQUE_CONNEXION (logs de connexion)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.historique_connexion (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  ip_address TEXT,
+  user_agent TEXT,
+  success BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 29. RAPPORTS_SEANCES (comptes-rendus de séances)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.rapports_seances (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reunion_id UUID REFERENCES public.reunions(id) ON DELETE CASCADE,
+  titre TEXT NOT NULL,
+  contenu TEXT,
+  url_document TEXT,
+  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 30. TONTINE_ATTRIBUTIONS (bénéficiaires tontine)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.tontine_attributions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  membre_id UUID NOT NULL REFERENCES public.membres(id) ON DELETE CASCADE,
+  exercice_id UUID REFERENCES public.exercices(id) ON DELETE CASCADE,
+  reunion_id UUID REFERENCES public.reunions(id) ON DELETE SET NULL,
+  montant NUMERIC DEFAULT 0,
+  date_attribution DATE,
+  statut TEXT DEFAULT 'planifie' CHECK (statut IN ('planifie', 'attribue', 'paye')),
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 31. COTISATIONS_MINIMALES (config minimum cotisations)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.cotisations_minimales (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  exercice_id UUID REFERENCES public.exercices(id) ON DELETE CASCADE,
+  montant_minimum NUMERIC DEFAULT 0,
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 32. MEMBRES_COTISATIONS_CONFIG
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.membres_cotisations_config (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  membre_id UUID NOT NULL REFERENCES public.membres(id) ON DELETE CASCADE,
+  exercice_id UUID REFERENCES public.exercices(id) ON DELETE CASCADE,
+  config JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 33. ACTIVITES_MEMBRES (log d'activité)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.activites_membres (
+  id BIGSERIAL PRIMARY KEY,
+  membre_id UUID REFERENCES public.membres(id) ON DELETE CASCADE,
+  type_activite TEXT,
+  description TEXT,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =============================================================================
+-- 34. COTISATIONS_MENSUELLES_EXERCICE (déjà créée par migration, sécurité)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.cotisations_mensuelles_exercice (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  exercice_id UUID NOT NULL REFERENCES public.exercices(id) ON DELETE CASCADE,
+  membre_id UUID NOT NULL REFERENCES public.membres(id) ON DELETE CASCADE,
+  mois INT NOT NULL CHECK (mois >= 1 AND mois <= 12),
+  annee INT NOT NULL,
+  montant NUMERIC DEFAULT 0,
+  statut TEXT DEFAULT 'en_attente',
+  date_paiement DATE,
+  association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(exercice_id, membre_id, mois, annee)
+);
+
+-- =============================================================================
+-- ENABLE RLS ON ALL TABLES
+-- =============================================================================
+ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.configurations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.exercices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.membres ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cotisations_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cotisations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.epargnes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.prets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.prets_paiements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reunions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reunions_presences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.types_sanctions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sanctions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reunions_sanctions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fond_caisse_operations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications_campagnes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.messages_contact ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.demandes_adhesion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reunion_beneficiaires ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cotisations_membres ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.match_presences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.phoenix_presences_entrainement ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fichiers_joint ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fond_caisse_clotures ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.historique_connexion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rapports_seances ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tontine_attributions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cotisations_minimales ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.membres_cotisations_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activites_membres ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cotisations_mensuelles_exercice ENABLE ROW LEVEL SECURITY;
+
+-- =============================================================================
+-- BASIC RLS POLICIES (will be hardened by remediation migration)
+-- =============================================================================
+-- Authenticated users can read their own association's data
+-- Admins can manage everything
+-- These are placeholder policies; the remediation migration will harden them.
+
+-- Roles: public read for authenticated
+CREATE POLICY IF NOT EXISTS "roles_authenticated_read" ON public.roles
+  FOR SELECT TO authenticated USING (true);
+
+-- Role permissions: admin only (placeholder — will be hardened by remediation migration)
+CREATE POLICY IF NOT EXISTS "role_permissions_authenticated_read" ON public.role_permissions
+  FOR SELECT TO authenticated USING (true);
+
+-- Configurations: admin read
+CREATE POLICY IF NOT EXISTS "configurations_authenticated_read" ON public.configurations
+  FOR SELECT TO authenticated USING (true);
+
+COMMIT;
+
+-- =============================================================================
+-- END OF SCHEMA FOUNDATION
 -- =============================================================================
 
 
 -- ============================================================================
--- MIGRATION: 20251031163552_eee4018e-b3ee-40bc-af54-f5b2f93cfd20.sql
+-- PART 2: ALL MIGRATIONS (chronological order)
 -- ============================================================================
+
+-- ------------------------------------------------------------------------
+-- MIGRATION: 20251031163552_eee4018e-b3ee-40bc-af54-f5b2f93cfd20.sql
+-- ------------------------------------------------------------------------
 
 -- Création de l'enum pour les rôles
 CREATE TYPE public.app_role AS ENUM ('membre', 'admin', 'tresorier', 'secretaire', 'responsable_sportif');
@@ -179,9 +824,9 @@ CREATE TRIGGER set_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251031165114_7cb7631d-86dc-4f4e-9cb9-cb15df571e77.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Créer les profils et rôles manquants pour les utilisateurs existants
 INSERT INTO public.profiles (id, nom, prenom, telephone, statut, est_membre_e2d, est_adherent_phoenix)
@@ -206,9 +851,9 @@ WHERE NOT EXISTS (
   SELECT 1 FROM public.user_roles ur WHERE ur.user_id = u.id
 );
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251031170843_387b5b07-ec81-4655-bf5c-ab9636e98e00.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Table de configuration des paiements (clés API, comptes)
 CREATE TABLE IF NOT EXISTS public.payment_configs (
@@ -403,9 +1048,9 @@ CREATE TRIGGER update_payment_configs_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251101133726_0b0f0c63-c717-4676-ba67-00b014c68b0c.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Corriger la fonction update_updated_at_column pour set search_path
 DROP FUNCTION IF EXISTS public.update_updated_at_column() CASCADE;
@@ -441,9 +1086,9 @@ CREATE TRIGGER update_payment_configs_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251101152233_d8ad1eca-3b3f-45f3-baab-dde705c58b97.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Créer les buckets storage pour le CMS
 INSERT INTO storage.buckets (id, name, public) 
@@ -888,9 +1533,9 @@ INSERT INTO site_events (titre, type, date, heure, lieu, ordre, actif) VALUES
     true
   );
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251101162821_7f512200-ef6c-4beb-98bb-0c3c271c8a1d.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter les colonnes image_url manquantes pour les tables site
 ALTER TABLE site_events ADD COLUMN IF NOT EXISTS image_url TEXT;
@@ -908,9 +1553,9 @@ COMMENT ON COLUMN site_partners.media_source IS 'Source du média: "upload" (Sup
 COMMENT ON COLUMN site_events.media_source IS 'Source du média: "upload" (Supabase Storage) ou "external" (Google Drive, OneDrive, lien direct)';
 COMMENT ON COLUMN site_hero.media_source IS 'Source du média: "upload" (Supabase Storage) ou "external" (Google Drive, OneDrive, lien direct)';
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251101171055_32021423-2048-4a82-b9ef-6a6f05bcc731.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter la configuration site_description manquante
 INSERT INTO site_config (cle, valeur, description, type, categorie) 
@@ -921,9 +1566,9 @@ SET valeur = EXCLUDED.valeur,
     description = EXCLUDED.description,
     updated_at = now();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251103231143_c15abfea-a7d5-45d6-9d8f-acaa002d64b3.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ====================================
 -- Migration v2.1: Hero Carousel, Gallery Albums, Events Carousel
@@ -1060,9 +1705,9 @@ INSERT INTO public.site_gallery_albums (titre, description, ordre)
 VALUES ('Album Principal', 'Photos et vidéos de nos activités', 0)
 ON CONFLICT DO NOTHING;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251108183355_8a26d918-e122-4218-b484-3f1a4d4daee4.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Migration: Migrer user_roles pour utiliser roles.id (sans modifier les fonctions)
 
@@ -1137,9 +1782,9 @@ COMMENT ON TABLE public.user_roles IS 'Liaison utilisateurs-rôles utilisant rol
 COMMENT ON COLUMN public.user_roles.role_id IS 'Référence vers roles(id) - plus flexible qu''un enum';
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251108200127_33a837d7-e3e4-4d6f-9b96-11f14a285dc6.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Migration : Initialisation des permissions par défaut pour tous les rôles
 -- Description : Configure toutes les permissions granulaires pour chaque rôle du système
@@ -1335,9 +1980,9 @@ BEGIN
     (SELECT COUNT(*) FROM role_permissions WHERE role_id IN (admin_id, tresorier_id, secretaire_id, resp_sport_id, censeur_id, commissaire_id));
 END $$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251108200154_f86afd64-60aa-4af6-999a-8b7e00e9083c.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Migration : Initialisation des permissions par défaut pour tous les rôles
 -- Description : Configure toutes les permissions granulaires pour chaque rôle du système
@@ -1533,9 +2178,9 @@ BEGIN
     (SELECT COUNT(*) FROM role_permissions WHERE role_id IN (admin_id, tresorier_id, secretaire_id, resp_sport_id, censeur_id, commissaire_id));
 END $$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251113171805_b7311ae3-aeda-4e75-859a-d0377d7b6132.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Fix infinite recursion in user_roles RLS policies
 -- Drop existing policies that might cause recursion
@@ -1598,9 +2243,9 @@ USING (public.is_admin());
 -- Grant execute permission on the function
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251114183553_064f3d31-e4cb-4ef3-b203-361885e09f8b.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Remove all old recursive policies on user_roles
 -- This migration removes problematic policies that cause infinite recursion
@@ -1622,9 +2267,9 @@ DROP POLICY IF EXISTS "admin_all_roles" ON user_roles;
 -- ✅ admin_delete_user_roles (uses is_admin())
 -- ✅ service_role_all_user_roles (for backend operations)
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251114192602_3d507f5f-dc6e-44bf-9d1d-a87afc81012f.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Fix critical RLS security issues
 -- 1. Lock down smtp_config to admin-only access
@@ -1678,9 +2323,9 @@ FOR ALL
 USING (is_admin())
 WITH CHECK (is_admin());
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251126102120_7ff6b530-6db5-41ac-b6a5-8eb4b27439bb.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Créer la table pour les présences aux réunions
 CREATE TABLE IF NOT EXISTS public.reunions_presences (
@@ -1767,9 +2412,9 @@ CREATE TRIGGER update_reunions_sanctions_timestamp
   FOR EACH ROW
   EXECUTE FUNCTION update_reunions_sanctions_updated_at();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251201190431_6346104b-9607-464e-bac1-565e3957ca35.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Phase 1: Migration pour le module Présences & Absences
 
@@ -1806,9 +2451,9 @@ ADD COLUMN IF NOT EXISTS seuil_rappel_presence INTEGER DEFAULT 70;
 CREATE INDEX IF NOT EXISTS idx_reunions_presences_statut ON reunions_presences(statut_presence);
 CREATE INDEX IF NOT EXISTS idx_reunions_presences_reunion_membre ON reunions_presences(reunion_id, membre_id);
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251212165951_c10feb45-6c8a-42bb-8b85-755beb86aedd.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Créer le bucket pour les justificatifs
 INSERT INTO storage.buckets (id, name, public)
@@ -1830,9 +2475,9 @@ CREATE POLICY "Authenticated users can delete their justificatifs"
 ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'justificatifs');
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251212195211_3bc98173-b65d-4086-adf8-286be96ae247.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Table pour l'historique des reconductions de prêts
 CREATE TABLE public.prets_reconductions (
@@ -1864,9 +2509,9 @@ UPDATE public.prets
 SET montant_paye = montant + (montant * COALESCE(taux_interet, 10) / 100) * (1 + COALESCE(reconductions, 0))
 WHERE statut = 'rembourse' AND (montant_paye IS NULL OR montant_paye = 0);
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251215140559_326306d2-04cb-4062-838f-ccb0ad35e6ea.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- =====================================================
 -- MIGRATION COMPLÈTE MODULE PRÊTS - CAHIER DES CHARGES
@@ -1936,9 +2581,9 @@ BEFORE UPDATE ON public.prets_config
 FOR EACH ROW
 EXECUTE FUNCTION public.update_prets_config_updated_at();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251215144632_83edb7f8-eef3-4897-ba5d-e68e7d7b4d98.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- 1. Pour les prêts remboursés SANS paiements dans l'historique:
 -- Créer un paiement fictif avec la date du prêt ou une date de référence
@@ -1984,9 +2629,9 @@ SET
   END
 WHERE statut != 'rembourse';
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251215150325_e577a280-20a7-42e7-91c7-59aabd61ec51.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter la colonne dernier_interet pour stocker le dernier intérêt calculé après reconduction
 ALTER TABLE prets ADD COLUMN IF NOT EXISTS dernier_interet NUMERIC DEFAULT 0;
@@ -2001,9 +2646,9 @@ UPDATE prets
 SET dernier_interet = 0
 WHERE statut = 'rembourse';
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251215153315_30ec6574-c04b-4948-9769-a2acc12c53e0.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Corriger les prêts avec reconductions dont les valeurs sont incorrectes
 -- Pour chaque prêt reconduit non remboursé:
@@ -2017,9 +2662,9 @@ SET
 WHERE reconductions > 0 
   AND statut != 'rembourse';
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251215160600_17c98a9f-2745-4222-bf86-2f557f9b3065.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Initialiser dernier_interet pour les prêts existants sans reconductions
 UPDATE prets 
@@ -2034,9 +2679,9 @@ SET dernier_interet = COALESCE(interet_initial, montant * (COALESCE(taux_interet
 WHERE (dernier_interet IS NULL OR dernier_interet = 0)
   AND statut = 'rembourse';
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251215173626_d0f32ecc-21ac-431d-b533-0b5d5a448ec6.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter duree_reconduction à prets_config
 ALTER TABLE prets_config 
@@ -2061,9 +2706,9 @@ UPDATE prets
 SET echeance = echeance + (reconductions * interval '1 month')
 WHERE reconductions > 0 AND statut != 'rembourse';
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251215180813_6d113814-67be-4f2c-bb6e-4ab47f196168.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- 1. Enrichir la table fond_caisse_operations avec les nouvelles colonnes
 ALTER TABLE public.fond_caisse_operations 
@@ -2110,9 +2755,9 @@ BEFORE UPDATE ON public.caisse_config
 FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251215194145_0631d572-8c83-4272-a600-e1d1969fed2b.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ============================================
 -- TRIGGERS POUR SYNCHRONISATION AUTOMATIQUE
@@ -2401,9 +3046,9 @@ AND NOT EXISTS (
   WHERE fco.source_table = 'aides' AND fco.source_id = a.id
 );
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251215200727_ae734fd8-c63f-4bb8-8bd6-a9eee28a3422.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- =====================================================
 -- MIGRATION RÉTROACTIVE DES DONNÉES EXISTANTES (CORRIGÉE)
@@ -2476,9 +3121,9 @@ AND NOT EXISTS (
   WHERE fco.source_table = 'reunions_sanctions' AND fco.source_id = rs.id
 );
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251216202046_46d11b68-9bc8-4f54-8450-921a23ead5b5.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Script de réparation des données historiques de reconductions manquantes
 -- Les prêts avec reconductions > 0 mais sans enregistrement dans prets_reconductions
@@ -2506,9 +3151,9 @@ VALUES
   ('2bdcd197-60bd-4c64-9800-340fdc64b990', '2025-11-15', 1062.50, 'Reconduction #1 (réparation historique) - Intérêt 5% sur capital restant 21,250 FCFA')
 ON CONFLICT DO NOTHING;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251216203054_a2b9be1d-a642-407a-8075-0ff6f157748c.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Réparation des données de caisse
 
@@ -2553,9 +3198,9 @@ SET categorie = 'sport'
 WHERE libelle ILIKE '%fond sport%'
   AND categorie = 'cotisation';
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251216203910_ad6e05c1-d8b8-4725-81fe-fd086463e96f.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Table de configuration des sessions par type de rôle
 CREATE TABLE public.session_config (
@@ -2603,9 +3248,9 @@ BEFORE UPDATE ON public.session_config
 FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251219192635_1cf1dcbc-982b-4fbb-a06e-437376601fd4.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- 1. Ajouter la clé étrangère role_permissions → roles (si elle n'existe pas)
 DO $$
@@ -2632,9 +3277,9 @@ INSERT INTO configurations (cle, valeur, description)
 VALUES ('sanction_absence_montant', '2000', 'Montant de la sanction pour absence non excusée en FCFA')
 ON CONFLICT (cle) DO NOTHING;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251223144005_59cee6fa-c8c3-4140-8dc6-a3491dd090d8.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Créer le bucket de stockage pour les photos des membres
 INSERT INTO storage.buckets (id, name, public)
@@ -2668,9 +3313,9 @@ FOR UPDATE
 TO authenticated
 USING (bucket_id = 'members-photos');
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251229175310_c5a3e728-0a23-49f1-ba4b-96d236adcd2e.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Trigger pour synchroniser automatiquement les sanctions payées avec la caisse
 CREATE OR REPLACE FUNCTION sync_sanction_to_caisse()
@@ -2732,9 +3377,9 @@ CREATE TRIGGER trigger_sync_sanction_caisse
 AFTER INSERT OR UPDATE ON reunions_sanctions
 FOR EACH ROW EXECUTE FUNCTION sync_sanction_to_caisse();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251231155825_b50591ed-7ab6-42bc-b4ef-7dd7c02a3898.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter la colonne taux_presence à la table reunions pour stocker le taux de présence à la clôture
 ALTER TABLE reunions ADD COLUMN IF NOT EXISTS taux_presence NUMERIC DEFAULT NULL;
@@ -2742,9 +3387,9 @@ ALTER TABLE reunions ADD COLUMN IF NOT EXISTS taux_presence NUMERIC DEFAULT NULL
 -- Commentaire explicatif
 COMMENT ON COLUMN reunions.taux_presence IS 'Taux de présence calculé à la clôture de la réunion (0-100)';
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251231163242_17674d2d-956f-48d3-a4a8-b7cda97a229d.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Corriger la fonction create_caisse_operation_from_source
 -- Problème: le CASE évalue NEW.date_depot même pour la table cotisations
@@ -2888,9 +3533,9 @@ BEGIN
 END;
 $function$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20251231164626_fac0e5a0-d503-4cc5-96e8-fc722a28671a.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- =====================================================
 -- CORRECTION: Synchronisation complète Prêts/Épargnes avec Caisse
@@ -2937,9 +3582,9 @@ AND NOT EXISTS (
   WHERE source_table = 'prets' AND source_id = p.id
 );
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260102004715_a366a09e-1101-4bf9-8e45-db8d4eeeab1b.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter colonnes pour gestion mot de passe première connexion
 ALTER TABLE public.profiles 
@@ -2976,9 +3621,9 @@ BEGIN
 END;
 $$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260102005623_4407be20-b886-4d37-932d-7fe75cb6de96.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter les colonnes pour lier les événements aux matchs sport
 ALTER TABLE public.cms_events ADD COLUMN IF NOT EXISTS match_id UUID;
@@ -2991,9 +3636,9 @@ CREATE INDEX IF NOT EXISTS idx_cms_events_match ON public.cms_events(match_id, m
 -- Ajouter colonne video_url pour support YouTube
 ALTER TABLE public.cms_gallery ADD COLUMN IF NOT EXISTS video_url TEXT;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260102013304_f3cca4e0-a844-4c6e-a904-01d2a8e432f0.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Corriger le trigger handle_new_user pour utiliser role_id au lieu de role
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -3032,9 +3677,9 @@ BEGIN
 END;
 $$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260102143609_3a9e24cb-b2d7-440a-9182-1d7e13f9e01a.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter la colonne reunion_id à la table aides pour lier les aides aux réunions
 ALTER TABLE public.aides 
@@ -3043,9 +3688,9 @@ ADD COLUMN reunion_id uuid REFERENCES public.reunions(id) ON DELETE SET NULL;
 -- Créer un index pour améliorer les performances des requêtes
 CREATE INDEX idx_aides_reunion_id ON public.aides(reunion_id);
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260102154250_28171844-f2ea-4a51-948b-bf402f74d014.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Fix storage RLS policies - replace has_role(uuid, app_role) with has_role(text)
 
@@ -3157,9 +3802,9 @@ USING (
   AND (public.has_role('administrateur') OR public.has_role('admin'))
 );
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260102173608_ae3521d6-d576-4c12-9b06-ec8b6b3d62c3.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Phase 1: Ajouter les configurations email dans la table configurations
 INSERT INTO configurations (cle, valeur, description) VALUES
@@ -3178,9 +3823,9 @@ CREATE POLICY "Admins peuvent modifier les donations"
 ON donations FOR UPDATE
 USING (has_role('administrateur') OR has_role('tresorier'));
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260102192758_06c396e1-9143-4df7-a022-ce0d87bc8ebb.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Phase 2 & 4: Ajout type_saisie aux cotisations_types + tables pour Huile & Savon et config exercices
 
@@ -3244,26 +3889,26 @@ BEFORE UPDATE ON reunions_huile_savon
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260102194436_0a39a33e-3ef8-45d1-b194-bda7de83547d.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter la configuration de sanction pour Huile et Savon
 INSERT INTO configurations (cle, valeur, description)
 VALUES ('sanction_huile_savon_montant', '2000', 'Montant de la sanction pour Huile & Savon non apporté (FCFA)')
 ON CONFLICT (cle) DO NOTHING;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260102201437_96b941ef-f100-4f80-ad64-3d6e59255590.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Supprimer la table obsolète reunion_presences (0 enregistrements, non utilisée)
 -- Toutes les données de présence utilisent la table reunions_presences
 DROP TABLE IF EXISTS reunion_presences;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260105143643_93d73b53-2ebe-46f0-8e1a-61e6e61c1a59.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter les entrées de configuration pour les images du site
 INSERT INTO site_config (cle, valeur, description, type, categorie) VALUES
@@ -3272,9 +3917,9 @@ INSERT INTO site_config (cle, valeur, description, type, categorie) VALUES
   ('site_logo', '', 'Logo principal du site affiché dans le header', 'image', 'images')
 ON CONFLICT (cle) DO NOTHING;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260105154533_0a044c00-5a56-4079-a6d4-2207c73fac46.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- 1. Création du bucket pour les images du site (public)
 INSERT INTO storage.buckets (id, name, public)
@@ -3309,17 +3954,17 @@ ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'site-images');
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260105170456_ad80e0ad-6a98-4016-97e9-30c3aca460cc.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Nettoyage des policies RLS dupliquées sur role_permissions
 DROP POLICY IF EXISTS "Administrateurs peuvent gérer les permissions" ON role_permissions;
 DROP POLICY IF EXISTS "Tous peuvent voir les permissions" ON role_permissions;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260105171101_5d825fae-350e-4f3d-8812-d80eee3e133a.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajout du champ contexte à la table reunions_sanctions pour distinguer les sanctions Sport vs Réunion
 ALTER TABLE reunions_sanctions 
@@ -3331,9 +3976,9 @@ COMMENT ON COLUMN reunions_sanctions.contexte IS 'Contexte de la sanction: reuni
 -- Index pour optimiser le filtrage par contexte
 CREATE INDEX IF NOT EXISTS idx_reunions_sanctions_contexte ON reunions_sanctions(contexte);
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260105190910_a858453c-40e3-4a77-b174-f70aff7d7aed.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Supprimer l'ancienne politique cassée
 DROP POLICY IF EXISTS "Admins peuvent gérer config" ON site_config;
@@ -3346,9 +3991,9 @@ TO authenticated
 USING (public.has_role('administrateur'))
 WITH CHECK (public.has_role('administrateur'));
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260108154915_3911ac5d-e5ea-4c54-8d11-281b23c8cd04.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter les types de notifications manquants
 INSERT INTO notifications_config (type_notification, actif, delai_jours, template_sujet, template_contenu)
@@ -3396,9 +4041,9 @@ Cordialement,
 L''équipe E2D')
 ON CONFLICT (type_notification) DO NOTHING;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260108173040_f5d2fe06-bfde-4bb4-a8be-846806df3dfe.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter la colonne statut_publication à sport_e2d_matchs
 ALTER TABLE sport_e2d_matchs 
@@ -3408,9 +4053,9 @@ CHECK (statut_publication IN ('brouillon', 'publie', 'archive'));
 COMMENT ON COLUMN sport_e2d_matchs.statut_publication IS 
 'Contrôle la visibilité sur le site web : brouillon (interne), publie (visible), archive (masqué)';
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260108180613_e0f03e31-f5c0-42d7-bfb6-1d56b11d0f9b.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Table pour les comptes rendus de matchs E2D
 CREATE TABLE public.match_compte_rendus (
@@ -3511,9 +4156,9 @@ CREATE INDEX idx_match_compte_rendus_match_id ON public.match_compte_rendus(matc
 CREATE INDEX idx_match_medias_match_id ON public.match_medias(match_id);
 CREATE INDEX idx_match_medias_ordre ON public.match_medias(match_id, ordre);
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260108181947_39add62b-8cee-44e3-846c-91eaefdf685b.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter membre_id à match_statistics pour lier les stats aux membres
 ALTER TABLE match_statistics 
@@ -3563,9 +4208,9 @@ LEFT JOIN match_statistics ms ON ms.membre_id = m.id AND ms.match_type = 'e2d'
 WHERE m.est_membre_e2d = true AND m.statut = 'actif'
 GROUP BY m.id, m.nom, m.prenom, m.photo_url, m.equipe_e2d;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260108182256_512dc0a4-4374-4731-839e-73117d0581d7.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Supprimer la vue SECURITY DEFINER et la recréer sans cette propriété
 DROP VIEW IF EXISTS e2d_player_stats_view;
@@ -3600,9 +4245,9 @@ LEFT JOIN match_statistics ms ON ms.membre_id = m.id AND ms.match_type = 'e2d'
 WHERE m.est_membre_e2d = true AND m.statut = 'actif'
 GROUP BY m.id, m.nom, m.prenom, m.photo_url, m.equipe_e2d;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260108184229_1ac35f4a-b8c0-4953-b0b8-d67a6ba095f5.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter colonnes status et last_login à la table profiles (si pas déjà ajoutées)
 DO $$
@@ -3661,9 +4306,9 @@ FOR ALL
 USING (id = auth.uid())
 WITH CHECK (id = auth.uid());
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260108190132_746277e4-3929-45d6-862c-7405d6ca5545.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter la colonne email à profiles
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email TEXT;
@@ -3709,9 +4354,9 @@ BEGIN
 END;
 $$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260109101009_bba8b91d-6be0-4d94-8159-6c30480b0831.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- 1. Normaliser les rôles (fusionner doublons avec casse différente)
 -- D'abord mettre à jour les références user_roles vers le rôle en minuscule
@@ -3779,9 +4424,9 @@ TO authenticated
 USING (auth.uid() = id)
 WITH CHECK (auth.uid() = id);
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260109105616_40ea48c0-b7bb-4c4b-a32f-ca6c88ff7008.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- 1. Fix has_role function to work with role_id instead of role column
 CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
@@ -3882,9 +4527,9 @@ CREATE POLICY "Admins can update event images" ON storage.objects FOR UPDATE
 CREATE POLICY "Admins can delete event images" ON storage.objects FOR DELETE
   USING (bucket_id = 'site-events' AND public.is_admin());
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260109114211_4f3ba244-1d0e-45a6-98f1-67918edd96db.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter colonne verrouillage à cotisations_membres
 ALTER TABLE public.cotisations_membres 
@@ -3910,9 +4555,9 @@ AFTER UPDATE ON public.exercices
 FOR EACH ROW
 EXECUTE FUNCTION public.verrouiller_cotisations_on_exercice_actif();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260109165807_111c7378-8b44-402a-86cf-6428b1ea8ef0.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- =====================================================
 -- TABLE DÉDIÉE: Cotisation Mensuelle par Membre/Exercice
@@ -4034,9 +4679,9 @@ AS $$
   );
 $$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260112195530_97f43d60-2758-4adf-b9b4-5e7d40a06d2e.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ======================================================
 -- MODULE BÉNÉFICIAIRES COTISATIONS - MIGRATION COMPLÈTE
@@ -4215,9 +4860,9 @@ GRANT ALL ON public.calendrier_beneficiaires TO authenticated;
 GRANT ALL ON public.beneficiaires_paiements_audit TO authenticated;
 GRANT EXECUTE ON FUNCTION public.calculer_montant_beneficiaire TO authenticated;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260112200721_b2374307-daff-489e-8264-b6cf31314a48.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter search_path aux fonctions manquantes pour éviter les problèmes de sécurité
 
@@ -4281,9 +4926,9 @@ BEGIN
 END;
 $function$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260112202219_ea6434cf-14f1-4b38-8c97-74b08a04424d.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Create table to log user actions
 CREATE TABLE public.utilisateurs_actions_log (
@@ -4318,9 +4963,9 @@ WITH CHECK (true);
 CREATE INDEX idx_utilisateurs_actions_log_user_id ON public.utilisateurs_actions_log(user_id);
 CREATE INDEX idx_utilisateurs_actions_log_performed_at ON public.utilisateurs_actions_log(performed_at DESC);
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260114160029_1a84e0e4-0755-4fc5-ba32-3fdab622a6b6.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ============================================
 -- PHASE 1: PERMISSIONS BACKEND - SECURITY UPDATE
@@ -4568,9 +5213,9 @@ CREATE POLICY "sanctions_delete_permission" ON sanctions
 FOR DELETE TO authenticated
 USING (public.has_permission('sanctions', 'delete'));
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260114161226_30819e42-e6c1-49ec-b7f5-8daf1121ca74.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Phase 2: Nettoyer les anciennes RLS policies permissives
 
@@ -4602,9 +5247,9 @@ DROP POLICY IF EXISTS "Trésoriers peuvent gérer les prêts" ON prets;
 DROP POLICY IF EXISTS "Membres actifs visibles par tous" ON membres;
 DROP POLICY IF EXISTS "Secrétaires peuvent gérer les membres" ON membres;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260114172355_fb21c4c6-d85f-438c-ad93-66f69ec41d11.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Fonction de synchronisation membre vers profil
 CREATE OR REPLACE FUNCTION public.sync_membre_to_profile()
@@ -4638,9 +5283,9 @@ CREATE TRIGGER trigger_sync_membre_to_profile
      OR OLD.telephone IS DISTINCT FROM NEW.telephone)
   EXECUTE FUNCTION sync_membre_to_profile();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260120192845_007e55f4-efd9-4a7a-b40b-4f7f91886766.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Migration: Ajout des colonnes pour la synchronisation E2D vers site_events
 -- et création de la table notifications_logs
@@ -4694,9 +5339,9 @@ COMMENT ON COLUMN public.site_events.match_id IS 'ID du match E2D synchronisé (
 COMMENT ON COLUMN public.site_events.match_type IS 'Type de match (e2d, phoenix) pour tracking';
 COMMENT ON COLUMN public.site_events.auto_sync IS 'Indique si l''événement est synchronisé automatiquement';
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260123120755_a4a9d8ea-e027-4fe1-ae4d-5e55554da43d.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- PHASE 6: Multi-bénéficiaires par mois
 -- Supprimer la contrainte d'unicité exercice+mois si elle existe
@@ -4733,9 +5378,9 @@ INSERT INTO configurations (cle, valeur, description)
 VALUES ('sanction_absence_montant', '500', 'Montant de la sanction pour absence non excusée en FCFA')
 ON CONFLICT (cle) DO NOTHING;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260123200205_bf804999-cbae-41c5-9d3d-72c0249e08d1.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ============================================
 -- MIGRATION: Corrections des 18 points de non-conformité
@@ -4842,9 +5487,9 @@ ON CONFLICT (code) DO NOTHING;
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260126164730_826f029b-5369-49bf-af06-c2dd4d6025fa.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Insérer l'entrée par défaut pour resend_api_key si elle n'existe pas
 INSERT INTO configurations (cle, valeur, description)
@@ -4855,9 +5500,9 @@ VALUES (
 )
 ON CONFLICT (cle) DO NOTHING;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260127184505_a04678e0-5b8c-4ad3-abde-6bcad5334f43.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Nettoyer l'espace parasite dans le serveur SMTP
 UPDATE smtp_config 
@@ -4866,9 +5511,9 @@ SET serveur_smtp = TRIM(serveur_smtp);
 -- Supprimer la clé dupliquée email_mode (garder uniquement email_service)
 DELETE FROM configurations WHERE cle = 'email_mode';
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260130162148_272abccf-c944-4d08-ad55-08f2913d22b6.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- =====================================================
 -- RENFORCEMENT DES POLITIQUES RLS PERMISSIVES
@@ -4940,9 +5585,9 @@ WITH CHECK (
 -- 7. Nettoyage politique SELECT dupliquée sur messages_contact
 DROP POLICY IF EXISTS "Authenticated can view messages" ON messages_contact;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260210184135_a652e725-2f32-4d44-8405-8309b8e4031c.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- ================================================================
@@ -4990,9 +5635,9 @@ BEFORE UPDATE ON public.fond_caisse_operations
 FOR EACH ROW EXECUTE FUNCTION public.update_caisse_operation_audit();
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260210185831_b697923b-e682-4ca2-9b4a-1f21bd592d45.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- =============================================
@@ -5187,9 +5832,9 @@ CREATE TRIGGER trigger_caisse_prets_delete
   EXECUTE FUNCTION create_caisse_operation_from_source();
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260212170106_5d85275f-48dc-4579-9910-336c38e78495.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Fix: set older duplicate active exercice to 'cloture' so we can enforce uniqueness
 UPDATE public.exercices SET statut = 'cloture' WHERE id = '9f764af9-3239-4838-9017-86f2ad8a9ad0' AND statut = 'actif';
@@ -5197,9 +5842,9 @@ UPDATE public.exercices SET statut = 'cloture' WHERE id = '9f764af9-3239-4838-90
 -- Point 4: Enforce single active exercice via partial unique index
 CREATE UNIQUE INDEX idx_exercice_actif_unique ON public.exercices (statut) WHERE statut = 'actif';
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260212201837_fcabc624-b1c1-4910-b7e5-e595abf5b6e9.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- 1. CRITIQUE: Restreindre la table configurations aux admins uniquement
@@ -5232,9 +5877,9 @@ AS $$
 $$;
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260219162854_57d163d5-42ad-4238-a5c3-eb82f5b7a70d.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- Étape 1 : Modifier la contrainte sur payment_configs.provider
@@ -5254,9 +5899,9 @@ ALTER TABLE public.donations
   CHECK (payment_method IN ('stripe', 'paypal', 'helloasso', 'bank_transfer', 'orange_money', 'mtn_money'));
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260219181856_56013e34-a418-49ef-8369-32643787c9c3.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- Suppression de l'ancienne politique trop restrictive
@@ -5278,17 +5923,17 @@ WITH CHECK (
 );
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260220174434_27130fa9-90ae-4c84-aca2-7af3b1db37c2.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Ajouter album_id nullable sur site_events pour lier un événement à un album galerie
 ALTER TABLE public.site_events
   ADD COLUMN IF NOT EXISTS album_id uuid REFERENCES public.site_gallery_albums(id) ON DELETE SET NULL;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260226105054_6ffecf8e-63bd-455b-8c4a-5548aaad0d93.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 INSERT INTO role_permissions (role_id, resource, permission, granted) VALUES
 -- administrateur: full access
@@ -5306,9 +5951,9 @@ INSERT INTO role_permissions (role_id, resource, permission, granted) VALUES
 -- censeur: read only
 ('5a918f05-1b01-455a-b26e-4fd6f244d3da', 'caisse', 'read', true);
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260330193505_b55f83ba-a91a-47dd-9f44-3e460cc2d583.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- Ajouter image_url à sport_e2d_matchs
@@ -5334,9 +5979,9 @@ CREATE POLICY "Update match_joueurs admin" ON match_joueurs FOR UPDATE TO authen
 CREATE POLICY "Delete match_joueurs admin" ON match_joueurs FOR DELETE TO authenticated USING (public.is_admin());
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260428191817_d29906e8-a2b9-4273-bfff-dd1e58bb1a75.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- =====================================================================
 -- LOT 1 — CAISSE : Source de vérité backend pour tous les calculs
@@ -5499,9 +6144,9 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.get_caisse_stats() TO authenticated;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260428192010_2fd5c94e-102b-4736-b9b8-ec587d4ba0a2.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Lot 2 — workflow validation reconductions
 
@@ -5539,9 +6184,9 @@ CREATE TRIGGER trg_enforce_reconduction_validation
   BEFORE INSERT OR UPDATE ON public.prets_reconductions
   FOR EACH ROW EXECUTE FUNCTION public.enforce_reconduction_validation();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260428192654_b4ca07cf-d6a9-4fd0-a631-3eaa8571847f.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.projeter_cotisations_reunion(_reunion_id uuid)
 RETURNS jsonb
@@ -5626,9 +6271,9 @@ EXECUTE FUNCTION public.trg_projeter_cotisations_on_open();
 
 GRANT EXECUTE ON FUNCTION public.projeter_cotisations_reunion(uuid) TO authenticated;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260428194015_3d898fe0-d512-4f62-adc8-c36bffce203d.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.calculer_montant_beneficiaire(p_membre_id uuid, p_exercice_id uuid)
  RETURNS jsonb
@@ -5678,9 +6323,9 @@ BEGIN
 END;
 $function$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260428194836_8387d7a2-d130-4af1-9962-9556f2e5db36.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 DO $$
 DECLARE r record;
@@ -5690,9 +6335,9 @@ BEGIN
   END LOOP;
 END $$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260428200651_dbddb61a-4ed2-4624-a3e4-79a9323c926b.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- ============================================================================
@@ -6226,9 +6871,9 @@ GRANT EXECUTE ON FUNCTION public.get_loan_request_validators_emails(uuid) TO aut
 GRANT EXECUTE ON FUNCTION public.get_loan_request_member_email(uuid) TO authenticated;
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260428201500_e6d62e9f-b92a-4708-b058-add00f5f17e5.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- ============================================
@@ -6380,9 +7025,9 @@ BEGIN
 END $$;
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260428202444_f3313a80-1dda-4a26-bb94-3885d26a898a.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 DROP TRIGGER IF EXISTS loan_request_init_steps ON public.loan_requests;
 CREATE TRIGGER loan_request_init_steps
@@ -6407,18 +7052,18 @@ CREATE TRIGGER loan_validation_config_updated_at
 BEFORE UPDATE ON public.loan_validation_config
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260428202508_9a780bda-f14b-4b70-920a-93d4946e7fe4.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 DROP TRIGGER IF EXISTS loan_request_init_steps ON public.loan_requests;
 DROP TRIGGER IF EXISTS loan_requests_updated_at ON public.loan_requests;
 DROP TRIGGER IF EXISTS loan_request_advance ON public.loan_request_validations;
 DROP TRIGGER IF EXISTS loan_validation_config_updated_at ON public.loan_validation_config;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260430154209_f41ffe21-0d0a-4ccb-86df-ac6db28c4542.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- Empêche qu'un même user_id soit lié à plusieurs membres
@@ -6449,9 +7094,9 @@ REVOKE ALL ON FUNCTION public.audit_auth_membres_sync() FROM PUBLIC, anon, authe
 GRANT EXECUTE ON FUNCTION public.audit_auth_membres_sync() TO authenticated;
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260430160933_46e2fb2f-9f2e-4bea-9d6f-898ff56f7a0f.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- 1) Table dédiée aux logs d'envoi d'email transactionnels
 CREATE TABLE IF NOT EXISTS public.email_logs (
@@ -6504,9 +7149,9 @@ INSERT INTO public.configurations (cle, valeur, description)
 VALUES ('email_service', 'resend', 'Service email actif (resend|smtp)')
 ON CONFLICT (cle) DO UPDATE SET description = EXCLUDED.description;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260430182120_1db1e7ae-1eb3-47a1-a58b-240966a3b068.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 UPDATE storage.buckets SET public = false WHERE id = 'justificatifs';
 
@@ -6530,9 +7175,9 @@ CREATE POLICY "Justificatifs: delete admin or owner"
 ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'justificatifs' AND (public.is_admin() OR owner = auth.uid()));
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260430184550_3edd3770-fa7b-49a6-a22d-0ad327f636f0.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Table de tracking des consultations du site
 CREATE TABLE IF NOT EXISTS public.site_pageviews (
@@ -6572,9 +7217,9 @@ CREATE POLICY "admins_can_delete_pageviews"
   TO authenticated
   USING (public.is_admin());
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260430191424_0f20e084-6e0c-464f-bbf0-027443ebda3a.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Normaliser les valeurs legacy
 UPDATE public.historique_connexion SET statut = 'succes' WHERE statut = 'reussi';
@@ -6585,9 +7230,9 @@ ALTER TABLE public.historique_connexion
   ADD CONSTRAINT historique_connexion_statut_check
   CHECK (statut IN ('succes', 'echec', 'bloque'));
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260505191935_f06f9987-b4ca-4f2d-86d2-3c2e02a39813.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- 1) adhesions: restrict SELECT/UPDATE to admin/tresorier
@@ -6648,9 +7293,9 @@ TO authenticated
 USING (public.has_role('administrateur') OR public.has_role('tresorier'));
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260512154016_e4d519d6-a8d0-4499-b6e5-6154485d0ef6.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- Helper: current authenticated user's membre id
@@ -6759,9 +7404,9 @@ CREATE POLICY "Authenticated can read active"
   USING (is_active = true OR public.is_admin());
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260512180040_19ce8211-d282-4064-8684-0e10a9dcbb25.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- 1. messages_contact: restrict SELECT to admin/secretaire
@@ -6853,9 +7498,9 @@ BEGIN
 END $$;
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260512182143_d1730e93-1602-4614-aac9-6b69bdca17bb.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 CREATE TABLE public.security_scans (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -6893,9 +7538,9 @@ CREATE POLICY "Admins can delete security scans"
   TO authenticated
   USING (public.is_admin());
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260601105019_1e1326b8-35f1-4293-b3a6-26494554df87.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Harden RLS to match security regression tests
 
@@ -6919,9 +7564,9 @@ FOR SELECT
 TO authenticated
 USING (has_role('administrateur'::text) OR has_role('tresorier'::text));
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260601110754_af502bef-8839-4db2-94c6-011588eb98ec.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- 1. cotisations_mensuelles_exercice: restrict SELECT to own + admin, INSERT/UPDATE to admin only
@@ -7015,9 +7660,9 @@ CREATE POLICY "Admins can view user action logs"
   USING (is_admin());
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260601124428_d1006d3d-fc80-4e03-826c-09d569f47c94.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- =====================================================
 -- PHASE 1 BLOC FINANCES — C13, C8, C11, C12
@@ -7380,9 +8025,9 @@ BEGIN
   RETURN jsonb_build_object('success', true);
 END; $$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260601124722_48c77a8a-0e1a-4843-9832-900f608dea92.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- C13: rendre montant_total dynamique (basé sur la durée réelle de l'exercice)
@@ -7441,9 +8086,9 @@ ALTER TABLE public.calendrier_beneficiaires ALTER COLUMN montant_total SET NOT N
 ALTER TABLE public.calendrier_beneficiaires ALTER COLUMN montant_total SET DEFAULT 0;
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260604195614_ef1ae772-7822-4dfe-a0ef-5e04e0ac8183.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- Lot A — Corrections finances V3
@@ -7575,9 +8220,9 @@ ON public.reunion_beneficiaires
 FOR EACH ROW EXECUTE FUNCTION public.sync_reunion_beneficiaire_to_caisse();
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260615120155_206e5b1e-f040-4b1b-84bc-ae466dd4c87c.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.cancel_loan_request(_request_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -7624,9 +8269,9 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.cancel_loan_request(uuid) TO authenticated;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260615124246_8e967917-6cda-481d-a12d-719fd9447888.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- 1. Table
@@ -7729,9 +8374,9 @@ $$;
 GRANT EXECUTE ON FUNCTION public.mark_all_notifications_read() TO authenticated;
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260615145321_56c08740-d737-430c-9bfe-45fbe98f51ed.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- 1) Grants génériques pour toutes les tables publiques
 DO $$
@@ -7785,9 +8430,9 @@ BEGIN
   END LOOP;
 END$$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260615154701_39282a3a-c5cc-450e-8200-5ba350971e25.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Generic GRANTs on all public tables
 DO $$
@@ -7821,9 +8466,9 @@ GRANT INSERT ON public.site_pageviews TO anon;
 -- Sequence usage for all roles
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated, anon, service_role;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260615163407_ce8c2632-997f-480c-a4e2-e3bd0a53ac2d.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.has_permission(_resource text, _permission text)
 RETURNS boolean
@@ -7850,9 +8495,9 @@ AS $function$
   )
 $function$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260615170818_d0fc9220-3fdc-4b5e-bf14-f1ebebbbcb6e.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- Élargir les RLS pour permettre aux utilisateurs avec permission cotisations.update
@@ -7918,9 +8563,9 @@ GRANT ALL ON public.cotisations_mensuelles_exercice TO service_role;
 GRANT ALL ON public.cotisations_mensuelles_audit TO service_role;
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260615180102_935c29b4-bef2-4b29-a96f-629f85f841a9.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Propagation des changements de montant mensuel aux cotisations en_attente
 CREATE OR REPLACE FUNCTION public.propagate_cotisation_mensuelle_to_en_attente()
@@ -7980,9 +8625,9 @@ AFTER UPDATE OF montant ON public.cotisations_mensuelles_exercice
 FOR EACH ROW
 EXECUTE FUNCTION public.propagate_cotisation_mensuelle_to_en_attente();
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260615185330_fd26580b-8030-4e35-a42a-201b8da66e56.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 
 -- 1. Schema changes
@@ -8340,18 +8985,18 @@ $$;
 GRANT EXECUTE ON FUNCTION public.cancel_loan_request(uuid) TO authenticated;
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260615201749_158d78b3-4387-4b7b-8a33-9aa84eee5027.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 ALTER TABLE public.loan_request_validations DROP CONSTRAINT IF EXISTS loan_request_validations_statut_check;
 ALTER TABLE public.loan_request_validations
   ADD CONSTRAINT loan_request_validations_statut_check
   CHECK (statut IN ('pending','approved','rejected','cancelled'));
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260617000001_fix_has_role_overload.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Fix: Add single-argument overload for has_role() used in RLS policies
 -- The function was defined as has_role(UUID, app_role) but called with has_role('texte')
@@ -8382,9 +9027,9 @@ AS $$
   );
 $$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260617000002_fix_has_permission_function.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Fix: Create has_permission() function that was referenced but never defined
 CREATE OR REPLACE FUNCTION public.has_permission(resource_name text, perm text)
@@ -8403,9 +9048,9 @@ AS $$
   ) OR public.is_admin();
 $$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260617000003_consolidate_triggers.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Fix: Remove duplicate sync_sanction_to_caisse trigger
 -- Keep only create_caisse_operation_from_source which handles sanctions correctly
@@ -8435,9 +9080,9 @@ BEGIN
 END;
 $$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260617000004_fix_disburse_loan_rate.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Fix: disburse_loan() reads taux_interet_defaut from wrong table
 -- It was reading from caisse_config instead of prets_config
@@ -8472,9 +9117,9 @@ BEGIN
 END;
 $$;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260617000005_fix_justificatifs_storage_policy.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Fix: Restrict justificatifs bucket to admin only upload
 -- Currently any authenticated user can upload
@@ -8510,9 +9155,9 @@ USING (
   )
 );
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260617000006_fix_rls_with_check.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- Fix: Add WITH CHECK clauses to RLS policies that only have USING
 
@@ -8552,9 +9197,9 @@ WITH CHECK (
   EXISTS (SELECT 1 FROM public.user_roles ur JOIN public.roles r ON ur.role_id = r.id WHERE ur.user_id = auth.uid() AND r.name IN ('administrateur', 'tresorier'))
 );
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260625000001_multi_tenant_foundation.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ================================================================
 -- MULTI-TENANT FOUNDATION MIGRATION
@@ -8857,9 +9502,9 @@ CREATE INDEX IF NOT EXISTS idx_donations_association_id ON public.donations(asso
 GRANT ALL ON public.associations TO authenticated;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260625000002_rpc_multi_tenant_fixes.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ================================================================
 -- RPC MULTI-TENANT FIXES
@@ -9314,9 +9959,9 @@ GRANT EXECUTE ON FUNCTION public.assigner_beneficiaire_with_audit(UUID, UUID, IN
 GRANT EXECUTE ON FUNCTION public.calculer_montant_beneficiaire(UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_manage_beneficiaires() TO authenticated;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260625000003_security_grants_fixes.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ================================================================
 -- SECURITY & GRANTS FIXES
@@ -9628,9 +10273,9 @@ GRANT EXECUTE ON FUNCTION public.has_role(UUID, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.has_role(UUID, text, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.has_permission(text, text) TO authenticated;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260627_po_priorities_fixes.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ================================================================
 -- PRET ORDER PRIORITIES FIXES
@@ -10057,9 +10702,9 @@ COMMENT ON FUNCTION public.create_loan_request IS
   'Crée une demande de prêt avec priorité automatique selon l''urgence (urgent=10, normal=0)';
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260701_aides_phase1_foundation.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ================================================================
 -- AIDES MODULE — PHASE 1: FOUNDATION
@@ -10356,9 +11001,9 @@ WHERE NOT EXISTS (
 );
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260702_aides_phase2_workflow_core.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ================================================================
 -- AIDES MODULE — PHASE 2: WORKFLOW & CORE
@@ -10589,7 +11234,7 @@ WHERE NOT EXISTS (
 -- ============================================================
 -- 9. TRIGGER: Auto-create default workflow for new associations
 -- ============================================================
-CREATE OR REPLACE FUNCTION public trg_aide_workflow_create_steps()
+CREATE OR REPLACE FUNCTION public.trg_aide_workflow_create_steps()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -11028,9 +11673,9 @@ COMMENT ON FUNCTION public.avancer_workflow_aide(UUID) IS
   'Avance automatiquement le workflow d''aide (étapes auto approuvées, arrêt aux étapes humaines)';
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260703_aides_phase3_ux_reports.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ================================================================
 -- AIDES MODULE — PHASE 3: UX & REPORTING
@@ -11661,9 +12306,9 @@ COMMENT ON FUNCTION public.export_aides_csv(UUID, TEXT, TEXT) IS
   'Exporte les aides au format CSV (séparateur point-virgule)';
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260704_calendrier_beneficiaires_phase4_fixes.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ================================================================
 -- CALENDRIER BÉNÉFICIAIRES — PHASE 4 FIXES
@@ -11972,9 +12617,9 @@ GRANT EXECUTE ON FUNCTION public.can_manage_beneficiaires() TO authenticated;
 GRANT ALL ON public.calendrier_beneficiaires TO service_role;
 GRANT ALL ON public.beneficiaires_paiements_audit TO service_role;
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260720000002_phase1d_session_and_password_hardening.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ============================================================
 -- Migration : 20260720000002_phase1d_session_and_password_hardening.sql
@@ -12375,9 +13020,9 @@ CREATE POLICY "audit_logs_insert_admin_only" ON public.audit_logs
 COMMIT;
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260721000001_phase2_multi_tenant_completion.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- ============================================================
 -- Migration : 20260721000001_phase2_multi_tenant_completion.sql
@@ -14072,9 +14717,9 @@ $$;
 COMMIT;
 
 
--- ============================================================================
+-- ------------------------------------------------------------------------
 -- MIGRATION: 20260722000001_remediation_audit_p0_p1.sql
--- ============================================================================
+-- ------------------------------------------------------------------------
 
 -- =============================================================================
 -- E2D Connect Gateway — REMEDIATION AUDIT (Phases 1, 2, 5)

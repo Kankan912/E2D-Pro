@@ -354,21 +354,10 @@ SET search_path = public
 AS $$
 DECLARE
   v_exercice UUID;
-  v_cotisations_dues NUMERIC := 0;
-  v_cotisations_payees NUMERIC := 0;
-  v_impayes NUMERIC := 0;
-  v_prets_total NUMERIC := 0;
-  v_prets_interets NUMERIC := 0;
-  v_prets_restant NUMERIC := 0;
-  v_aides_total NUMERIC := 0;
-  v_fond_caisse_part NUMERIC := 0;
-  v_investissements NUMERIC := 0;
-  v_epargne_total NUMERIC := 0;
-  v_nb_cotisations_mensuelles INT := 0;
-  v_montant_benefice NUMERIC := 0;
   v_config_mensuelle NUMERIC := 0;
   v_nb_mois INT := 12;
-  v_solde_global NUMERIC := 0;
+  v_nb_cotisations_mensuelles_val INT := 0;
+  v_montant_benefice NUMERIC := 0;
 BEGIN
   -- Déterminer l'exercice
   IF p_exercice_id IS NOT NULL THEN
@@ -379,37 +368,44 @@ BEGIN
     ORDER BY date_debut DESC LIMIT 1;
   END IF;
 
+  -- Assigner membre_id directement à la colonne de sortie
+  membre_id := p_membre_id;
+
   -- Cotisations dues (montant_attendu)
-  SELECT COALESCE(SUM(COALESCE(montant_attendu, 0)), 0) INTO v_cotisations_dues
+  SELECT COALESCE(SUM(COALESCE(montant_attendu, 0)), 0) INTO cotisations_dues
   FROM public.cotisations
   WHERE membre_id = p_membre_id AND exercice_id = v_exercice;
 
   -- Cotisations payées
-  SELECT COALESCE(SUM(COALESCE(montant_paye, montant, 0)), 0) INTO v_cotisations_payees
+  SELECT COALESCE(SUM(COALESCE(montant_paye, montant, 0)), 0) INTO cotisations_payees
   FROM public.cotisations
   WHERE membre_id = p_membre_id AND exercice_id = v_exercice AND statut IN ('paye', 'payee');
 
   -- Impayés
-  v_impayes := GREATEST(v_cotisations_dues - v_cotisations_payees, 0);
+  impayes := GREATEST(cotisations_dues - cotisations_payees, 0);
 
   -- Prêts
   SELECT
     COALESCE(SUM(montant), 0),
     COALESCE(SUM(COALESCE(interet_paye, 0)), 0),
     COALESCE(SUM(GREATEST(COALESCE(montant_total_du, montant) - COALESCE(montant_paye, 0), 0)), 0)
-  INTO v_prets_total, v_prets_interets, v_prets_restant
+  INTO prets_total, prets_interets, prets_restant
   FROM public.prets
   WHERE membre_id = p_membre_id AND statut IN ('en_cours', 'en_retard');
 
   -- Aides
-  SELECT COALESCE(SUM(montant), 0) INTO v_aides_total
+  SELECT COALESCE(SUM(montant), 0) INTO aides_total
   FROM public.aides
   WHERE membre_id = p_membre_id AND statut IN ('payee', 'paye');
 
   -- Épargne
-  SELECT COALESCE(SUM(montant), 0) INTO v_epargne_total
+  SELECT COALESCE(SUM(montant), 0) INTO epargne_total
   FROM public.epargnes
   WHERE membre_id = p_membre_id AND statut IN ('depot', 'actif');
+
+  -- Fond caisse part et investissements (non calculés individuellement par membre pour l'instant)
+  fond_caisse_part := 0;
+  investissements := 0;
 
   -- Config exercice pour bénéfice
   SELECT cotisation_mensuelle_montant, nb_mois_exercice
@@ -419,32 +415,21 @@ BEGIN
   LIMIT 1;
 
   -- Nombre de cotisations mensuelles du membre
-  SELECT COUNT(*) INTO v_nb_cotisations_mensuelles
+  SELECT COUNT(*) INTO v_nb_cotisations_mensuelles_val
   FROM public.cotisations
   WHERE membre_id = p_membre_id AND exercice_id = v_exercice AND type_cotisation_code = 'mensuelle';
 
+  nb_cotisations_mensuelles := v_nb_cotisations_mensuelles_val;
+
   -- Bénéfice prévisionnel = montant mensuel × nb_cotisations × nb_mois (Feature #4)
-  v_montant_benefice := v_config_mensuelle * v_nb_cotisations_mensuelles * v_nb_mois;
+  v_montant_benefice := v_config_mensuelle * v_nb_cotisations_mensuelles_val * v_nb_mois;
+  montant_benefice_previsionnel := v_montant_benefice;
 
   -- Solde global = payé - dû + épargne - prêts_restant + aides + bénéfice
-  -- (le solde représente ce que le membre "possède" dans l'association)
-  v_solde_global := v_cotisations_payees - v_cotisations_dues + v_epargne_total - v_prets_restant + v_aides_total + v_montant_benefice;
+  solde_global := cotisations_payees - cotisations_dues + epargne_total - prets_restant + aides_total + v_montant_benefice;
 
-  RETURN NEXT
-  p_membre_id,
-  v_cotisations_dues,
-  v_cotisations_payees,
-  v_impayes,
-  v_prets_total,
-  v_prets_interets,
-  v_prets_restant,
-  v_aides_total,
-  v_fond_caisse_part,
-  v_investissements,
-  v_epargne_total,
-  v_solde_global,
-  v_nb_cotisations_mensuelles,
-  v_montant_benefice;
+  -- RETURN NEXT sans arguments (les colonnes OUT sont déjà assignées)
+  RETURN NEXT;
 END;
 $$;
 

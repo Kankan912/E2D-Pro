@@ -352,17 +352,31 @@ CREATE POLICY "sanctions_admin_manage" ON public.sanctions
   FOR ALL TO authenticated USING (public.is_admin() OR membre_id IN (SELECT id FROM public.membres WHERE user_id = auth.uid()))
   WITH CHECK (public.is_admin());
 
--- Donations: admin gère, user lit ses propres dons
-DROP POLICY IF EXISTS "donations_admin_manage" ON public.donations;
-CREATE POLICY "donations_admin_manage" ON public.donations
-  FOR ALL TO authenticated USING (public.is_admin() OR user_id = auth.uid())
-  WITH CHECK (public.is_admin() OR user_id = auth.uid());
+-- Donations: anyone can INSERT (public donation form), admin manages all
+DROP POLICY IF EXISTS "donations_public_insert" ON public.donations;
+CREATE POLICY "donations_public_insert" ON public.donations
+  FOR INSERT TO anon, authenticated WITH CHECK (true);
 
--- Adhesions: admin gère, user lit ses propres adhésions
-DROP POLICY IF EXISTS "adhesions_admin_manage" ON public.adhesions;
-CREATE POLICY "adhesions_admin_manage" ON public.adhesions
-  FOR ALL TO authenticated USING (public.is_admin() OR user_id = auth.uid())
-  WITH CHECK (public.is_admin() OR user_id = auth.uid());
+DROP POLICY IF EXISTS "donations_admin_read" ON public.donations;
+CREATE POLICY "donations_admin_read" ON public.donations
+  FOR SELECT TO authenticated USING (public.is_admin() OR user_id = auth.uid());
+
+DROP POLICY IF EXISTS "donations_admin_update" ON public.donations;
+CREATE POLICY "donations_admin_update" ON public.donations
+  FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+-- Adhesions: anyone can INSERT (public adhesion form), admin manages all
+DROP POLICY IF EXISTS "adhesions_public_insert" ON public.adhesions;
+CREATE POLICY "adhesions_public_insert" ON public.adhesions
+  FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "adhesions_admin_read" ON public.adhesions;
+CREATE POLICY "adhesions_admin_read" ON public.adhesions
+  FOR SELECT TO authenticated USING (public.is_admin() OR user_id = auth.uid());
+
+DROP POLICY IF EXISTS "adhesions_admin_update" ON public.adhesions;
+CREATE POLICY "adhesions_admin_update" ON public.adhesions
+  FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- Notifications: user lit/gère ses propres notifications
 DROP POLICY IF EXISTS "notifications_self_manage" ON public.notifications;
@@ -374,10 +388,35 @@ DROP POLICY IF EXISTS "audit_logs_admin_read" ON public.audit_logs;
 CREATE POLICY "audit_logs_admin_read" ON public.audit_logs
   FOR SELECT TO authenticated USING (public.is_admin());
 
--- Messages_contact: admin only
-DROP POLICY IF EXISTS "messages_contact_admin_manage" ON public.messages_contact;
-CREATE POLICY "messages_contact_admin_manage" ON public.messages_contact
-  FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+-- Messages_contact: anyone (anon + authenticated) can INSERT, admin can read all
+DROP POLICY IF EXISTS "messages_contact_insert" ON public.messages_contact;
+CREATE POLICY "messages_contact_insert" ON public.messages_contact
+  FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "messages_contact_admin_read" ON public.messages_contact;
+CREATE POLICY "messages_contact_admin_read" ON public.messages_contact
+  FOR SELECT TO authenticated USING (public.is_admin());
+
+DROP POLICY IF EXISTS "messages_contact_admin_update" ON public.messages_contact;
+CREATE POLICY "messages_contact_admin_update" ON public.messages_contact
+  FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "messages_contact_admin_delete" ON public.messages_contact;
+CREATE POLICY "messages_contact_admin_delete" ON public.messages_contact
+  FOR DELETE TO authenticated USING (public.is_admin());
+
+-- Demandes_adhesion: public INSERT, admin read/update
+DROP POLICY IF EXISTS "demandes_adhesion_public_insert" ON public.demandes_adhesion;
+CREATE POLICY "demandes_adhesion_public_insert" ON public.demandes_adhesion
+  FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "demandes_adhesion_admin_read" ON public.demandes_adhesion;
+CREATE POLICY "demandes_adhesion_admin_read" ON public.demandes_adhesion
+  FOR SELECT TO authenticated USING (public.is_admin());
+
+DROP POLICY IF EXISTS "demandes_adhesion_admin_update" ON public.demandes_adhesion;
+CREATE POLICY "demandes_adhesion_admin_update" ON public.demandes_adhesion
+  FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- Site_* tables: public read, admin write
 DROP POLICY IF EXISTS "site_hero_public_read" ON public.site_hero;

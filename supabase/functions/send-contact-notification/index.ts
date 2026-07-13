@@ -191,20 +191,25 @@ serve(async (req: Request): Promise<Response> => {
 
     const { type, to, contactData, replyContent, captcha_token } = body;
 
-    // 3. CAPTCHA verification (REQUIRED).
-    if (!captcha_token || typeof captcha_token !== "string") {
-      return new Response(
-        JSON.stringify({ error: "CAPTCHA requis (captcha_token manquant)" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // 3. CAPTCHA verification (OPTIONAL si aucun secret configuré — rétro-compatible).
+    const hasCaptchaSecret = Deno.env.get("HCAPTCHA_SECRET") || Deno.env.get("TURNSTILE_SECRET");
+    if (hasCaptchaSecret) {
+      // CAPTCHA configuré → vérification obligatoire
+      if (!captcha_token || typeof captcha_token !== "string") {
+        return new Response(
+          JSON.stringify({ error: "CAPTCHA requis (captcha_token manquant)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const captchaOk = await verifyCaptcha(captcha_token, clientIp);
+      if (!captchaOk) {
+        return new Response(
+          JSON.stringify({ error: "Échec de la vérification CAPTCHA" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
-    const captchaOk = await verifyCaptcha(captcha_token, clientIp);
-    if (!captchaOk) {
-      return new Response(
-        JSON.stringify({ error: "Échec de la vérification CAPTCHA" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // Si pas de secret CAPTCHA configuré, on laisse passer (mode démo/test)
 
     // 4. Validate type.
     const validTypes = ["admin_notification", "visitor_confirmation", "admin_reply"];

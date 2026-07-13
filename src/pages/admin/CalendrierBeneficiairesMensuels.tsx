@@ -12,7 +12,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Plus, Trash2, ArrowUp, ArrowDown, FileText, FileSpreadsheet, CheckCircle2, X } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown, FileText, FileSpreadsheet, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -305,7 +305,7 @@ export default function CalendrierBeneficiairesMensuels() {
         onValidate={(montant, date, mode, ref) => {
           if (paiementDialog.beneficiaire) {
             validerPaiement.mutate({
-              beneficiaire_id: paiementementDialog.beneficiaire.id,
+              beneficiaire_id: paiementDialog.beneficiaire.id,
               montant_paye: montant,
               date_paiement: date,
               mode_paiement: mode,

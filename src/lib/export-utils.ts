@@ -5,7 +5,8 @@
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { exportToExcel as excelExport, type ExcelColumn } from '@/lib/excel-export';
+import { exportToExcel as excelExport } from '@/lib/excel-export';
+import type { ExcelColumn } from '@/lib/excel-export';
 
 export interface ExportRow {
   [key: string]: string | number;
@@ -48,4 +49,4 @@ export async function exportToExcel(
   await excelExport(filename, sheetName, rows, columns);
 }
 
-export { ExcelColumn };
+export type { ExcelColumn };

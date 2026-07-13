@@ -197,7 +197,7 @@ export const useCotisationsParReunion = (reunionId: string | null) => {
     queryKey: ['cotisations-reunion', reunionId, associationId],
     queryFn: async () => {
       if (!reunionId) return [];
-      
+
       const { data, error } = await supabase
         .from('cotisations')
         .select(`
@@ -212,5 +212,38 @@ export const useCotisationsParReunion = (reunionId: string | null) => {
       return data as Cotisation[];
     },
     enabled: !!reunionId,
+  });
+};
+
+// ============================================================================
+// V5 : Hook pour récupérer les exercices (Feature #1, #3, #5)
+// ============================================================================
+export interface Exercice {
+  id: string;
+  nom: string;
+  date_debut: string;
+  date_fin: string;
+  statut: string;
+  taux_interet_prets: number | null;
+  plafond_fond_caisse: number | null;
+  croissance_fond_caisse: number | null;
+  association_id: string | null;
+  created_at: string;
+}
+
+export const useExercices = () => {
+  const { associationId } = useAssociation();
+  return useQuery({
+    queryKey: ['exercices', associationId],
+    queryFn: async () => {
+      let query = supabase
+        .from('exercices')
+        .select('*')
+        .order('date_debut', { ascending: false });
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data ?? []) as Exercice[];
+    },
   });
 };

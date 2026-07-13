@@ -274,128 +274,167 @@ CREATE TRIGGER trg_invalidate_sessions_profiles
 -- =============================================================================
 
 -- Profiles: chaque user lit/écrit son propre profil, admin gère tout
-CREATE POLICY IF NOT EXISTS "profiles_self_read" ON public.profiles
+DROP POLICY IF EXISTS "profiles_self_read" ON public.profiles;
+CREATE POLICY "profiles_self_read" ON public.profiles
   FOR SELECT TO authenticated USING (id = auth.uid() OR public.is_admin());
-CREATE POLICY IF NOT EXISTS "profiles_self_update" ON public.profiles
+DROP POLICY IF EXISTS "profiles_self_update" ON public.profiles;
+CREATE POLICY "profiles_self_update" ON public.profiles
   FOR UPDATE TO authenticated USING (id = auth.uid() OR public.is_admin());
-CREATE POLICY IF NOT EXISTS "profiles_self_insert" ON public.profiles
+DROP POLICY IF EXISTS "profiles_self_insert" ON public.profiles;
+CREATE POLICY "profiles_self_insert" ON public.profiles
   FOR INSERT TO authenticated WITH CHECK (id = auth.uid() OR public.is_admin());
 
 -- Membres: admin gère, membre lit son propre enregistrement
-CREATE POLICY IF NOT EXISTS "membres_admin_manage" ON public.membres
+DROP POLICY IF EXISTS "membres_admin_manage" ON public.membres;
+CREATE POLICY "membres_admin_manage" ON public.membres
   FOR ALL TO authenticated
   USING (public.is_admin() OR user_id = auth.uid())
   WITH CHECK (public.is_admin() OR user_id = auth.uid());
 
 -- User_roles: admin gère, user lit ses propres rôles
-CREATE POLICY IF NOT EXISTS "user_roles_self_read" ON public.user_roles
+DROP POLICY IF EXISTS "user_roles_self_read" ON public.user_roles;
+CREATE POLICY "user_roles_self_read" ON public.user_roles
   FOR SELECT TO authenticated USING (user_id = auth.uid() OR public.is_admin());
-CREATE POLICY IF NOT EXISTS "user_roles_admin_manage" ON public.user_roles
+DROP POLICY IF EXISTS "user_roles_admin_manage" ON public.user_roles;
+CREATE POLICY "user_roles_admin_manage" ON public.user_roles
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- Roles: tout authentifié peut lire
-CREATE POLICY IF NOT EXISTS "roles_authenticated_read" ON public.roles
+DROP POLICY IF EXISTS "roles_authenticated_read" ON public.roles;
+CREATE POLICY "roles_authenticated_read" ON public.roles
   FOR SELECT TO authenticated USING (true);
 
 -- Role_permissions: tout authentifié peut lire, admin gère
-CREATE POLICY IF NOT EXISTS "role_permissions_read" ON public.role_permissions
+DROP POLICY IF EXISTS "role_permissions_read" ON public.role_permissions;
+CREATE POLICY "role_permissions_read" ON public.role_permissions
   FOR SELECT TO authenticated USING (true);
-CREATE POLICY IF NOT EXISTS "role_permissions_admin_manage" ON public.role_permissions
+DROP POLICY IF EXISTS "role_permissions_admin_manage" ON public.role_permissions;
+CREATE POLICY "role_permissions_admin_manage" ON public.role_permissions
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- Associations: tout authentifié peut lire
-CREATE POLICY IF NOT EXISTS "associations_read" ON public.associations
+DROP POLICY IF EXISTS "associations_read" ON public.associations;
+CREATE POLICY "associations_read" ON public.associations
   FOR SELECT TO authenticated USING (true);
 
 -- Configurations: admin gère, authentifié lit
-CREATE POLICY IF NOT EXISTS "configurations_read" ON public.configurations
+DROP POLICY IF EXISTS "configurations_read" ON public.configurations;
+CREATE POLICY "configurations_read" ON public.configurations
   FOR SELECT TO authenticated USING (true);
-CREATE POLICY IF NOT EXISTS "configurations_admin_manage" ON public.configurations
+DROP POLICY IF EXISTS "configurations_admin_manage" ON public.configurations;
+CREATE POLICY "configurations_admin_manage" ON public.configurations
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- Secret_configs: admin only
-CREATE POLICY IF NOT EXISTS "secret_configs_admin_only" ON public.secret_configs
+DROP POLICY IF EXISTS "secret_configs_admin_only" ON public.secret_configs;
+CREATE POLICY "secret_configs_admin_only" ON public.secret_configs
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- Tables financières: admin gère, membre lit ses propres données
-CREATE POLICY IF NOT EXISTS "cotisations_admin_manage" ON public.cotisations
+DROP POLICY IF EXISTS "cotisations_admin_manage" ON public.cotisations;
+CREATE POLICY "cotisations_admin_manage" ON public.cotisations
   FOR ALL TO authenticated USING (public.is_admin() OR membre_id IN (SELECT id FROM public.membres WHERE user_id = auth.uid()))
   WITH CHECK (public.is_admin());
-CREATE POLICY IF NOT EXISTS "epargnes_admin_manage" ON public.epargnes
+DROP POLICY IF EXISTS "epargnes_admin_manage" ON public.epargnes;
+CREATE POLICY "epargnes_admin_manage" ON public.epargnes
   FOR ALL TO authenticated USING (public.is_admin() OR membre_id IN (SELECT id FROM public.membres WHERE user_id = auth.uid()))
   WITH CHECK (public.is_admin());
-CREATE POLICY IF NOT EXISTS "prets_admin_manage" ON public.prets
+DROP POLICY IF EXISTS "prets_admin_manage" ON public.prets;
+CREATE POLICY "prets_admin_manage" ON public.prets
   FOR ALL TO authenticated USING (public.is_admin() OR membre_id IN (SELECT id FROM public.membres WHERE user_id = auth.uid()))
   WITH CHECK (public.is_admin());
-CREATE POLICY IF NOT EXISTS "aides_admin_manage" ON public.aides
+DROP POLICY IF EXISTS "aides_admin_manage" ON public.aides;
+CREATE POLICY "aides_admin_manage" ON public.aides
   FOR ALL TO authenticated USING (public.is_admin() OR membre_id IN (SELECT id FROM public.membres WHERE user_id = auth.uid()))
   WITH CHECK (public.is_admin());
-CREATE POLICY IF NOT EXISTS "sanctions_admin_manage" ON public.sanctions
+DROP POLICY IF EXISTS "sanctions_admin_manage" ON public.sanctions;
+CREATE POLICY "sanctions_admin_manage" ON public.sanctions
   FOR ALL TO authenticated USING (public.is_admin() OR membre_id IN (SELECT id FROM public.membres WHERE user_id = auth.uid()))
   WITH CHECK (public.is_admin());
 
 -- Donations: admin gère, user lit ses propres dons
-CREATE POLICY IF NOT EXISTS "donations_admin_manage" ON public.donations
+DROP POLICY IF EXISTS "donations_admin_manage" ON public.donations;
+CREATE POLICY "donations_admin_manage" ON public.donations
   FOR ALL TO authenticated USING (public.is_admin() OR user_id = auth.uid())
   WITH CHECK (public.is_admin() OR user_id = auth.uid());
 
 -- Adhesions: admin gère, user lit ses propres adhésions
-CREATE POLICY IF NOT EXISTS "adhesions_admin_manage" ON public.adhesions
+DROP POLICY IF EXISTS "adhesions_admin_manage" ON public.adhesions;
+CREATE POLICY "adhesions_admin_manage" ON public.adhesions
   FOR ALL TO authenticated USING (public.is_admin() OR user_id = auth.uid())
   WITH CHECK (public.is_admin() OR user_id = auth.uid());
 
 -- Notifications: user lit/gère ses propres notifications
-CREATE POLICY IF NOT EXISTS "notifications_self_manage" ON public.notifications
+DROP POLICY IF EXISTS "notifications_self_manage" ON public.notifications;
+CREATE POLICY "notifications_self_manage" ON public.notifications
   FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 -- Audit_logs: admin only
-CREATE POLICY IF NOT EXISTS "audit_logs_admin_read" ON public.audit_logs
+DROP POLICY IF EXISTS "audit_logs_admin_read" ON public.audit_logs;
+CREATE POLICY "audit_logs_admin_read" ON public.audit_logs
   FOR SELECT TO authenticated USING (public.is_admin());
 
 -- Messages_contact: admin only
-CREATE POLICY IF NOT EXISTS "messages_contact_admin_manage" ON public.messages_contact
+DROP POLICY IF EXISTS "messages_contact_admin_manage" ON public.messages_contact;
+CREATE POLICY "messages_contact_admin_manage" ON public.messages_contact
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- Site_* tables: public read, admin write
-CREATE POLICY IF NOT EXISTS "site_hero_public_read" ON public.site_hero
+DROP POLICY IF EXISTS "site_hero_public_read" ON public.site_hero;
+CREATE POLICY "site_hero_public_read" ON public.site_hero
   FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY IF NOT EXISTS "site_hero_admin_manage" ON public.site_hero
+DROP POLICY IF EXISTS "site_hero_admin_manage" ON public.site_hero;
+CREATE POLICY "site_hero_admin_manage" ON public.site_hero
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
-CREATE POLICY IF NOT EXISTS "site_about_public_read" ON public.site_about
+DROP POLICY IF EXISTS "site_about_public_read" ON public.site_about;
+CREATE POLICY "site_about_public_read" ON public.site_about
   FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY IF NOT EXISTS "site_about_admin_manage" ON public.site_about
+DROP POLICY IF EXISTS "site_about_admin_manage" ON public.site_about;
+CREATE POLICY "site_about_admin_manage" ON public.site_about
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
-CREATE POLICY IF NOT EXISTS "site_activities_public_read" ON public.site_activities
+DROP POLICY IF EXISTS "site_activities_public_read" ON public.site_activities;
+CREATE POLICY "site_activities_public_read" ON public.site_activities
   FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY IF NOT EXISTS "site_activities_admin_manage" ON public.site_activities
+DROP POLICY IF EXISTS "site_activities_admin_manage" ON public.site_activities;
+CREATE POLICY "site_activities_admin_manage" ON public.site_activities
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
-CREATE POLICY IF NOT EXISTS "site_events_public_read" ON public.site_events
+DROP POLICY IF EXISTS "site_events_public_read" ON public.site_events;
+CREATE POLICY "site_events_public_read" ON public.site_events
   FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY IF NOT EXISTS "site_events_admin_manage" ON public.site_events
+DROP POLICY IF EXISTS "site_events_admin_manage" ON public.site_events;
+CREATE POLICY "site_events_admin_manage" ON public.site_events
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
-CREATE POLICY IF NOT EXISTS "site_gallery_public_read" ON public.site_gallery
+DROP POLICY IF EXISTS "site_gallery_public_read" ON public.site_gallery;
+CREATE POLICY "site_gallery_public_read" ON public.site_gallery
   FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY IF NOT EXISTS "site_gallery_admin_manage" ON public.site_gallery
+DROP POLICY IF EXISTS "site_gallery_admin_manage" ON public.site_gallery;
+CREATE POLICY "site_gallery_admin_manage" ON public.site_gallery
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
-CREATE POLICY IF NOT EXISTS "site_partners_public_read" ON public.site_partners
+DROP POLICY IF EXISTS "site_partners_public_read" ON public.site_partners;
+CREATE POLICY "site_partners_public_read" ON public.site_partners
   FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY IF NOT EXISTS "site_partners_admin_manage" ON public.site_partners
+DROP POLICY IF EXISTS "site_partners_admin_manage" ON public.site_partners;
+CREATE POLICY "site_partners_admin_manage" ON public.site_partners
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
-CREATE POLICY IF NOT EXISTS "site_config_public_read" ON public.site_config
+DROP POLICY IF EXISTS "site_config_public_read" ON public.site_config;
+CREATE POLICY "site_config_public_read" ON public.site_config
   FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY IF NOT EXISTS "site_config_admin_manage" ON public.site_config
+DROP POLICY IF EXISTS "site_config_admin_manage" ON public.site_config;
+CREATE POLICY "site_config_admin_manage" ON public.site_config
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- Site_pageviews: anyone can insert (tracking), admin reads
-CREATE POLICY IF NOT EXISTS "site_pageviews_insert" ON public.site_pageviews
+DROP POLICY IF EXISTS "site_pageviews_insert" ON public.site_pageviews;
+CREATE POLICY "site_pageviews_insert" ON public.site_pageviews
   FOR INSERT TO anon, authenticated WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "site_pageviews_admin_read" ON public.site_pageviews
+DROP POLICY IF EXISTS "site_pageviews_admin_read" ON public.site_pageviews;
+CREATE POLICY "site_pageviews_admin_read" ON public.site_pageviews
   FOR SELECT TO authenticated USING (public.is_admin());
 
 -- =============================================================================

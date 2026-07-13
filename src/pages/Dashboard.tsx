@@ -68,6 +68,11 @@ const NotificationsAdmin = lazyWithRetry(() => import("./admin/NotificationsAdmi
 const NotificationsTemplatesAdmin = lazyWithRetry(() => import("./admin/NotificationsTemplatesAdmin"));
 const ExportsAdmin = lazyWithRetry(() => import("./admin/ExportsAdmin"));
 
+// V5 Evolution Pages
+const MonEtatFinancier = lazyWithRetry(() => import("./dashboard/MonEtatFinancier"));
+const CalendrierBeneficiairesMensuels = lazyWithRetry(() => import("./admin/CalendrierBeneficiairesMensuels"));
+const ConfigCotisationsExercice = lazyWithRetry(() => import("./admin/ConfigCotisationsExercice"));
+
 // Admin Pages - Site CMS
 const HeroAdmin = lazyWithRetry(() => import("./admin/site/HeroAdmin"));
 const ActivitiesAdmin = lazyWithRetry(() => import("./admin/site/ActivitiesAdmin"));
@@ -174,6 +179,11 @@ const Dashboard = () => {
           <Route path="/admin/site/about" element={<PermissionRoute resource="site" permission="write"><ErrorBoundary fallbackTitle="Erreur - À propos"><AboutAdmin /></ErrorBoundary></PermissionRoute>} />
           <Route path="/admin/site/messages" element={<PermissionRoute resource="site" permission="write"><ErrorBoundary fallbackTitle="Erreur - Messages"><MessagesAdmin /></ErrorBoundary></PermissionRoute>} />
           <Route path="/admin/site/images" element={<PermissionRoute resource="site" permission="write"><ErrorBoundary fallbackTitle="Erreur - Images"><ImagesAdmin /></ErrorBoundary></PermissionRoute>} />
+
+          {/* V5 Evolution Routes */}
+          <Route path="/my-financial-status" element={<ErrorBoundary fallbackTitle="Erreur - Mon État Financier"><MonEtatFinancier /></ErrorBoundary>} />
+          <Route path="/admin/calendrier-beneficiaires" element={<PermissionRoute resource="cotisations" permission="read"><ErrorBoundary fallbackTitle="Erreur - Calendrier Bénéficiaires"><CalendrierBeneficiairesMensuels /></ErrorBoundary></PermissionRoute>} />
+          <Route path="/admin/config-cotisations" element={<PermissionRoute resource="config" permission="write"><ErrorBoundary fallbackTitle="Erreur - Config Cotisations"><ConfigCotisationsExercice /></ErrorBoundary></PermissionRoute>} />
         </Routes>
       </Suspense>
     </DashboardLayout>

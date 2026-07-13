@@ -16,7 +16,7 @@ ALTER TABLE public.loan_requests
   ADD CONSTRAINT loan_requests_statut_check
   CHECK (statut IN ('pending','awaiting_avaliste','in_progress','rejected','rejected_by_avaliste','approved','disbursed','cancelled'));
 
-CREATE INDEX IF NOT EXISTS idx_lr_avaliste ON public.loan_requests(avaliste_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_lr_avaliste ON public.loan_requests(avaliste_id);
 
 -- 2. Helper: can the member self-avaliser ?
 CREATE OR REPLACE FUNCTION public.can_self_avaliser(_membre_id uuid)

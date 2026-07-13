@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS public.pret_reconduction_validations (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_prv_recon ON public.pret_reconduction_validations(reconduction_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_prv_recon ON public.pret_reconduction_validations(reconduction_id);
 
 GRANT SELECT ON public.pret_reconduction_validations TO authenticated;
 GRANT ALL ON public.pret_reconduction_validations TO service_role;

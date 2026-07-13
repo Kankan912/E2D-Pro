@@ -63,8 +63,8 @@ FOR EACH ROW
 EXECUTE FUNCTION public.handle_updated_at();
 
 -- 8. Index pour performance
-CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON public.user_roles(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_roles_role_id ON public.user_roles(role_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_user_roles_user_id ON public.user_roles(user_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_user_roles_role_id ON public.user_roles(role_id);
 
 -- 9. Commentaires
 COMMENT ON TABLE public.user_roles IS 'Liaison utilisateurs-rôles utilisant roles.id au lieu de l''enum';

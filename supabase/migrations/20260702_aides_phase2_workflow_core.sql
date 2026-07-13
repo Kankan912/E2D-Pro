@@ -28,9 +28,9 @@ COMMENT ON COLUMN public.aide_workflow_steps.type_validation IS
 COMMENT ON COLUMN public.aide_workflow_steps.delai_jours IS
   'Délai maximum en jours avant expiration de l''étape';
 
-CREATE INDEX IF NOT EXISTS idx_aide_workflow_steps_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_workflow_steps_association_id
   ON public.aide_workflow_steps(association_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_aide_workflow_steps_assoc_ordre
+CREATE UNIQUE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_workflow_steps_assoc_ordre
   ON public.aide_workflow_steps(association_id, ordre);
 
 -- ============================================================
@@ -52,11 +52,11 @@ COMMENT ON TABLE public.aide_workflow_validations IS
 COMMENT ON COLUMN public.aide_workflow_validations.statut IS
   'pending, approuve, refuse';
 
-CREATE INDEX IF NOT EXISTS idx_aide_wf_validations_step
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_wf_validations_step
   ON public.aide_workflow_validations(workflow_step_id);
-CREATE INDEX IF NOT EXISTS idx_aide_wf_validations_aide
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_wf_validations_aide
   ON public.aide_workflow_validations(aide_id);
-CREATE INDEX IF NOT EXISTS idx_aide_wf_validations_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_wf_validations_statut
   ON public.aide_workflow_validations(aide_id, statut);
 
 -- ============================================================
@@ -82,11 +82,11 @@ COMMENT ON COLUMN public.aide_payment_orders.statut IS
 COMMENT ON COLUMN public.aide_payment_orders.reference IS
   'Référence unique de l''ordre de paiement (ex: OP-2026-001)';
 
-CREATE INDEX IF NOT EXISTS idx_aide_payment_orders_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_orders_association_id
   ON public.aide_payment_orders(association_id);
-CREATE INDEX IF NOT EXISTS idx_aide_payment_orders_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_orders_statut
   ON public.aide_payment_orders(association_id, statut);
-CREATE INDEX IF NOT EXISTS idx_aide_payment_orders_appel
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_orders_appel
   ON public.aide_payment_orders(appel_de_fonds_id);
 
 -- ============================================================
@@ -108,11 +108,11 @@ COMMENT ON TABLE public.aide_payment_items IS
 COMMENT ON COLUMN public.aide_payment_items.statut IS
   'en_attente, paye, echoue, annule';
 
-CREATE INDEX IF NOT EXISTS idx_aide_payment_items_order
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_items_order
   ON public.aide_payment_items(payment_order_id);
-CREATE INDEX IF NOT EXISTS idx_aide_payment_items_beneficiaire
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_items_beneficiaire
   ON public.aide_payment_items(beneficiaire_id);
-CREATE INDEX IF NOT EXISTS idx_aide_payment_items_aide
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_items_aide
   ON public.aide_payment_items(aide_id);
 
 -- ============================================================

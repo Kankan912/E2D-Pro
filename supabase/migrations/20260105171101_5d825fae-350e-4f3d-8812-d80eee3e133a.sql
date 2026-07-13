@@ -6,4 +6,4 @@ ADD COLUMN IF NOT EXISTS contexte VARCHAR(20) DEFAULT 'reunion';
 COMMENT ON COLUMN reunions_sanctions.contexte IS 'Contexte de la sanction: reunion, sport, autre';
 
 -- Index pour optimiser le filtrage par contexte
-CREATE INDEX IF NOT EXISTS idx_reunions_sanctions_contexte ON reunions_sanctions(contexte);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunions_sanctions_contexte ON reunions_sanctions(contexte);

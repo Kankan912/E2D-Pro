@@ -16,8 +16,8 @@ CREATE TABLE IF NOT EXISTS public.cotisations_mensuelles_exercice (
 );
 
 -- 2. Créer les index pour les performances
-CREATE INDEX IF NOT EXISTS idx_cotisations_mensuelles_exercice_membre ON public.cotisations_mensuelles_exercice(membre_id);
-CREATE INDEX IF NOT EXISTS idx_cotisations_mensuelles_exercice_exercice ON public.cotisations_mensuelles_exercice(exercice_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_cotisations_mensuelles_exercice_membre ON public.cotisations_mensuelles_exercice(membre_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_cotisations_mensuelles_exercice_exercice ON public.cotisations_mensuelles_exercice(exercice_id);
 
 -- 3. Activer RLS
 ALTER TABLE public.cotisations_mensuelles_exercice ENABLE ROW LEVEL SECURITY;

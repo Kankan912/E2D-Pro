@@ -1,5 +1,5 @@
 -- Create table to log user actions
-CREATE TABLE public.utilisateurs_actions_log (
+CREATE TABLE IF NOT EXISTS public.utilisateurs_actions_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
   action TEXT NOT NULL,
@@ -28,5 +28,5 @@ TO authenticated
 WITH CHECK (true);
 
 -- Add index for faster queries
-CREATE INDEX idx_utilisateurs_actions_log_user_id ON public.utilisateurs_actions_log(user_id);
-CREATE INDEX idx_utilisateurs_actions_log_performed_at ON public.utilisateurs_actions_log(performed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_utilisateurs_actions_log_user_id ON public.utilisateurs_actions_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_utilisateurs_actions_log_performed_at ON public.utilisateurs_actions_log(performed_at DESC);

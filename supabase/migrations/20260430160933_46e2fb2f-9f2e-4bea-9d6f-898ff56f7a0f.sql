@@ -11,9 +11,9 @@ CREATE TABLE IF NOT EXISTS public.email_logs (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_email_logs_created_at ON public.email_logs (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_email_logs_status ON public.email_logs (status);
-CREATE INDEX IF NOT EXISTS idx_email_logs_to_email ON public.email_logs (to_email);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_email_logs_created_at ON public.email_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_email_logs_status ON public.email_logs (status);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_email_logs_to_email ON public.email_logs (to_email);
 
 ALTER TABLE public.email_logs ENABLE ROW LEVEL SECURITY;
 

@@ -1,22 +1,8 @@
 -- =============================================================================
--- E2D CONNECT GATEWAY — FRESH INSTALL COMPLETE SQL (v2)
+-- E2D CONNECT GATEWAY — FRESH INSTALL COMPLETE SQL (v3)
 -- =============================================================================
--- Ce fichier contient:
---   1. SCHEMA_FOUNDATION.sql (crée toutes les tables de base manquantes)
---   2. TOUTES les migrations (131) dans l'ordre chronologique
---   3. La migration de remédiation (RLS, index, sécurité)
--- 
--- Instructions:
---   1. Ouvrez Supabase → SQL Editor → New query
---   2. Copiez-collez TOUT le contenu de ce fichier
---   3. Cliquez sur RUN
---   4. Attendez le message 'Success' (peut prendre 2-3 minutes)
---   5. Des NOTICE en jaune sont NORMALES
+-- Instructions: Supabase → SQL Editor → New query → Copiez-collez TOUT → RUN
 -- =============================================================================
-
--- ============================================================================
--- PART 1: SCHEMA FOUNDATION (creates all base tables)
--- ============================================================================
 
 -- =============================================================================
 -- E2D CONNECT GATEWAY — SCHEMA FOUNDATION
@@ -36,17 +22,24 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- =============================================================================
--- 1. ROLES (nécessaire pour user_roles)
+-- 1. APP_ROLE ENUM (PostgreSQL ne supporte pas CREATE TYPE IF NOT EXISTS)
 -- =============================================================================
-CREATE TYPE IF NOT EXISTS public.app_role AS ENUM (
-  'membre', 'admin', 'tresorier', 'secretaire', 'responsable_sportif',
-  'super_admin', 'administrateur', 'secretaire_general'
-);
+DO $$ BEGIN
+  CREATE TYPE public.app_role AS ENUM (
+    'membre', 'admin', 'tresorier', 'secretaire', 'responsable_sportif',
+    'super_admin', 'administrateur', 'secretaire_general'
+  );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
+-- =============================================================================
+-- 2. ROLES TABLE (nécessaire pour user_roles avec role_id)
+-- =============================================================================
 CREATE TABLE IF NOT EXISTS public.roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT UNIQUE NOT NULL,
   description TEXT,
+  association_id UUID,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -62,7 +55,7 @@ INSERT INTO public.roles (name, description) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- =============================================================================
--- 2. ROLE_PERMISSIONS
+-- 3. ROLE_PERMISSIONS
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS public.role_permissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -72,6 +65,22 @@ CREATE TABLE IF NOT EXISTS public.role_permissions (
   granted BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(role_id, resource, permission)
+);
+
+-- =============================================================================
+-- 4. USER_ROLES (modèle hybride : role app_role ET role_id UUID)
+--    La colonne role_id est utilisée par les migrations multi-tenant
+--    La colonne role (enum) est utilisée par l'ancien code
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.user_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  role app_role,  -- ancien modèle (enum)
+  role_id UUID REFERENCES public.roles(id) ON DELETE SET NULL,  -- nouveau modèle (FK)
+  association_id UUID,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, role),
+  UNIQUE(user_id, role_id, association_id)
 );
 
 -- =============================================================================
@@ -655,19 +664,15 @@ COMMIT;
 -- =============================================================================
 
 
--- ============================================================================
--- PART 2: ALL MIGRATIONS (chronological order)
--- ============================================================================
-
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251031163552_eee4018e-b3ee-40bc-af54-f5b2f93cfd20.sql
--- ------------------------------------------------------------------------
-
--- Création de l'enum pour les rôles
-CREATE TYPE public.app_role AS ENUM ('membre', 'admin', 'tresorier', 'secretaire', 'responsable_sportif');
+-- Création de l'enum pour les rôles (résilient : ne plante pas si déjà créé par SCHEMA_FOUNDATION)
+DO $$ BEGIN
+  CREATE TYPE public.app_role AS ENUM ('membre', 'admin', 'tresorier', 'secretaire', 'responsable_sportif');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- Table des profils utilisateurs (liée à auth.users)
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   nom VARCHAR(100) NOT NULL,
   prenom VARCHAR(100) NOT NULL,
@@ -682,10 +687,11 @@ CREATE TABLE public.profiles (
 );
 
 -- Table des rôles utilisateurs (sécurisée)
-CREATE TABLE public.user_roles (
+-- RESILIENT: ne recrée pas si SCHEMA_FOUNDATION a déjà créé user_roles
+CREATE TABLE IF NOT EXISTS public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  role app_role NOT NULL,
+  role app_role,
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(user_id, role)
 );
@@ -824,10 +830,7 @@ CREATE TRIGGER set_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251031165114_7cb7631d-86dc-4f4e-9cb9-cb15df571e77.sql
--- ------------------------------------------------------------------------
-
 -- Créer les profils et rôles manquants pour les utilisateurs existants
 INSERT INTO public.profiles (id, nom, prenom, telephone, statut, est_membre_e2d, est_adherent_phoenix)
 SELECT 
@@ -851,10 +854,7 @@ WHERE NOT EXISTS (
   SELECT 1 FROM public.user_roles ur WHERE ur.user_id = u.id
 );
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251031170843_387b5b07-ec81-4655-bf5c-ab9636e98e00.sql
--- ------------------------------------------------------------------------
-
 -- Table de configuration des paiements (clés API, comptes)
 CREATE TABLE IF NOT EXISTS public.payment_configs (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -1010,14 +1010,14 @@ CREATE POLICY "Admin et Trésorier peuvent mettre à jour adhesions"
   );
 
 -- Indexes pour les recherches
-CREATE INDEX idx_donations_donor_email ON public.donations(donor_email);
-CREATE INDEX idx_donations_payment_status ON public.donations(payment_status);
-CREATE INDEX idx_donations_created_at ON public.donations(created_at DESC);
-CREATE INDEX idx_recurring_donations_status ON public.recurring_donations(status);
-CREATE INDEX idx_recurring_donations_next_payment ON public.recurring_donations(next_payment_date);
-CREATE INDEX idx_adhesions_email ON public.adhesions(email);
-CREATE INDEX idx_adhesions_payment_status ON public.adhesions(payment_status);
-CREATE INDEX idx_adhesions_processed ON public.adhesions(processed);
+CREATE INDEX IF NOT EXISTS idx_donations_donor_email ON public.donations(donor_email);
+CREATE INDEX IF NOT EXISTS idx_donations_payment_status ON public.donations(payment_status);
+CREATE INDEX IF NOT EXISTS idx_donations_created_at ON public.donations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recurring_donations_status ON public.recurring_donations(status);
+CREATE INDEX IF NOT EXISTS idx_recurring_donations_next_payment ON public.recurring_donations(next_payment_date);
+CREATE INDEX IF NOT EXISTS idx_adhesions_email ON public.adhesions(email);
+CREATE INDEX IF NOT EXISTS idx_adhesions_payment_status ON public.adhesions(payment_status);
+CREATE INDEX IF NOT EXISTS idx_adhesions_processed ON public.adhesions(processed);
 
 -- Trigger pour updated_at sur donations
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
@@ -1048,10 +1048,7 @@ CREATE TRIGGER update_payment_configs_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251101133726_0b0f0c63-c717-4676-ba67-00b014c68b0c.sql
--- ------------------------------------------------------------------------
-
 -- Corriger la fonction update_updated_at_column pour set search_path
 DROP FUNCTION IF EXISTS public.update_updated_at_column() CASCADE;
 
@@ -1086,10 +1083,7 @@ CREATE TRIGGER update_payment_configs_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251101152233_d8ad1eca-3b3f-45f3-baab-dde705c58b97.sql
--- ------------------------------------------------------------------------
-
 -- Créer les buckets storage pour le CMS
 INSERT INTO storage.buckets (id, name, public) 
 VALUES 
@@ -1204,7 +1198,7 @@ USING (
 );
 
 -- Table pour la section Hero
-CREATE TABLE site_hero (
+CREATE TABLE IF NOT EXISTS site_hero (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   titre TEXT NOT NULL,
   sous_titre TEXT NOT NULL,
@@ -1237,7 +1231,7 @@ USING (has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
 -- Table pour la section About
-CREATE TABLE site_about (
+CREATE TABLE IF NOT EXISTS site_about (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   titre TEXT NOT NULL DEFAULT 'À Propos de Nous',
   sous_titre TEXT NOT NULL DEFAULT 'Notre Mission',
@@ -1261,7 +1255,7 @@ USING (has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
 -- Table pour les activités
-CREATE TABLE site_activities (
+CREATE TABLE IF NOT EXISTS site_activities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   titre TEXT NOT NULL,
   description TEXT NOT NULL,
@@ -1285,7 +1279,7 @@ USING (has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
 -- Table pour les événements
-CREATE TABLE site_events (
+CREATE TABLE IF NOT EXISTS site_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   titre TEXT NOT NULL,
   type TEXT NOT NULL, -- 'Match', 'Tournoi', 'Entraînement', etc.
@@ -1312,7 +1306,7 @@ USING (has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
 -- Table pour la galerie
-CREATE TABLE site_gallery (
+CREATE TABLE IF NOT EXISTS site_gallery (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   titre TEXT NOT NULL,
   categorie TEXT NOT NULL, -- 'Photo', 'Vidéo'
@@ -1336,7 +1330,7 @@ USING (has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
 -- Table pour les partenaires
-CREATE TABLE site_partners (
+CREATE TABLE IF NOT EXISTS site_partners (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nom TEXT NOT NULL,
   logo_url TEXT NOT NULL,
@@ -1360,7 +1354,7 @@ USING (has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
 -- Table pour la configuration générale du site
-CREATE TABLE site_config (
+CREATE TABLE IF NOT EXISTS site_config (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   cle TEXT UNIQUE NOT NULL,
   valeur TEXT NOT NULL,
@@ -1533,10 +1527,7 @@ INSERT INTO site_events (titre, type, date, heure, lieu, ordre, actif) VALUES
     true
   );
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251101162821_7f512200-ef6c-4beb-98bb-0c3c271c8a1d.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter les colonnes image_url manquantes pour les tables site
 ALTER TABLE site_events ADD COLUMN IF NOT EXISTS image_url TEXT;
 ALTER TABLE site_hero ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT '/placeholder.svg';
@@ -1553,10 +1544,7 @@ COMMENT ON COLUMN site_partners.media_source IS 'Source du média: "upload" (Sup
 COMMENT ON COLUMN site_events.media_source IS 'Source du média: "upload" (Supabase Storage) ou "external" (Google Drive, OneDrive, lien direct)';
 COMMENT ON COLUMN site_hero.media_source IS 'Source du média: "upload" (Supabase Storage) ou "external" (Google Drive, OneDrive, lien direct)';
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251101171055_32021423-2048-4a82-b9ef-6a6f05bcc731.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter la configuration site_description manquante
 INSERT INTO site_config (cle, valeur, description, type, categorie) 
 VALUES 
@@ -1566,10 +1554,7 @@ SET valeur = EXCLUDED.valeur,
     description = EXCLUDED.description,
     updated_at = now();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251103231143_c15abfea-a7d5-45d6-9d8f-acaa002d64b3.sql
--- ------------------------------------------------------------------------
-
 -- ====================================
 -- Migration v2.1: Hero Carousel, Gallery Albums, Events Carousel
 -- ====================================
@@ -1593,8 +1578,8 @@ CREATE TABLE IF NOT EXISTS public.site_hero_images (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_hero_images_hero_id ON public.site_hero_images(hero_id);
-CREATE INDEX idx_hero_images_ordre ON public.site_hero_images(ordre);
+CREATE INDEX IF NOT EXISTS idx_hero_images_hero_id ON public.site_hero_images(hero_id);
+CREATE INDEX IF NOT EXISTS idx_hero_images_ordre ON public.site_hero_images(ordre);
 
 -- RLS pour site_hero_images
 ALTER TABLE public.site_hero_images ENABLE ROW LEVEL SECURITY;
@@ -1630,7 +1615,7 @@ CREATE TABLE IF NOT EXISTS public.site_gallery_albums (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_gallery_albums_ordre ON public.site_gallery_albums(ordre);
+CREATE INDEX IF NOT EXISTS idx_gallery_albums_ordre ON public.site_gallery_albums(ordre);
 
 -- RLS pour site_gallery_albums
 ALTER TABLE public.site_gallery_albums ENABLE ROW LEVEL SECURITY;
@@ -1658,7 +1643,7 @@ CREATE TRIGGER update_gallery_albums_updated_at
 ALTER TABLE public.site_gallery 
 ADD COLUMN IF NOT EXISTS album_id UUID REFERENCES public.site_gallery_albums(id) ON DELETE SET NULL;
 
-CREATE INDEX idx_gallery_album_id ON public.site_gallery(album_id);
+CREATE INDEX IF NOT EXISTS idx_gallery_album_id ON public.site_gallery(album_id);
 
 -- 4. EVENTS CAROUSEL CONFIG: Configuration du carousel événements
 CREATE TABLE IF NOT EXISTS public.site_events_carousel_config (
@@ -1705,10 +1690,7 @@ INSERT INTO public.site_gallery_albums (titre, description, ordre)
 VALUES ('Album Principal', 'Photos et vidéos de nos activités', 0)
 ON CONFLICT DO NOTHING;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251108183355_8a26d918-e122-4218-b484-3f1a4d4daee4.sql
--- ------------------------------------------------------------------------
-
 -- Migration: Migrer user_roles pour utiliser roles.id (sans modifier les fonctions)
 
 -- 1. Créer une nouvelle table user_roles_new avec role_id
@@ -1774,18 +1756,15 @@ FOR EACH ROW
 EXECUTE FUNCTION public.handle_updated_at();
 
 -- 8. Index pour performance
-CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON public.user_roles(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_roles_role_id ON public.user_roles(role_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_user_roles_user_id ON public.user_roles(user_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_user_roles_role_id ON public.user_roles(role_id);
 
 -- 9. Commentaires
 COMMENT ON TABLE public.user_roles IS 'Liaison utilisateurs-rôles utilisant roles.id au lieu de l''enum';
 COMMENT ON COLUMN public.user_roles.role_id IS 'Référence vers roles(id) - plus flexible qu''un enum';
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251108200127_33a837d7-e3e4-4d6f-9b96-11f14a285dc6.sql
--- ------------------------------------------------------------------------
-
 -- Migration : Initialisation des permissions par défaut pour tous les rôles
 -- Description : Configure toutes les permissions granulaires pour chaque rôle du système
 
@@ -1980,10 +1959,7 @@ BEGIN
     (SELECT COUNT(*) FROM role_permissions WHERE role_id IN (admin_id, tresorier_id, secretaire_id, resp_sport_id, censeur_id, commissaire_id));
 END $$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251108200154_f86afd64-60aa-4af6-999a-8b7e00e9083c.sql
--- ------------------------------------------------------------------------
-
 -- Migration : Initialisation des permissions par défaut pour tous les rôles
 -- Description : Configure toutes les permissions granulaires pour chaque rôle du système
 
@@ -2178,10 +2154,7 @@ BEGIN
     (SELECT COUNT(*) FROM role_permissions WHERE role_id IN (admin_id, tresorier_id, secretaire_id, resp_sport_id, censeur_id, commissaire_id));
 END $$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251113171805_b7311ae3-aeda-4e75-859a-d0377d7b6132.sql
--- ------------------------------------------------------------------------
-
 -- Fix infinite recursion in user_roles RLS policies
 -- Drop existing policies that might cause recursion
 DROP POLICY IF EXISTS "Users can view roles" ON user_roles;
@@ -2243,10 +2216,7 @@ USING (public.is_admin());
 -- Grant execute permission on the function
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251114183553_064f3d31-e4cb-4ef3-b203-361885e09f8b.sql
--- ------------------------------------------------------------------------
-
 -- Remove all old recursive policies on user_roles
 -- This migration removes problematic policies that cause infinite recursion
 
@@ -2267,10 +2237,7 @@ DROP POLICY IF EXISTS "admin_all_roles" ON user_roles;
 -- ✅ admin_delete_user_roles (uses is_admin())
 -- ✅ service_role_all_user_roles (for backend operations)
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251114192602_3d507f5f-dc6e-44bf-9d1d-a87afc81012f.sql
--- ------------------------------------------------------------------------
-
 -- Fix critical RLS security issues
 -- 1. Lock down smtp_config to admin-only access
 -- 2. Remove duplicate adhesions policy
@@ -2323,10 +2290,7 @@ FOR ALL
 USING (is_admin())
 WITH CHECK (is_admin());
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251126102120_7ff6b530-6db5-41ac-b6a5-8eb4b27439bb.sql
--- ------------------------------------------------------------------------
-
 -- Créer la table pour les présences aux réunions
 CREATE TABLE IF NOT EXISTS public.reunions_presences (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -2379,10 +2343,10 @@ CREATE POLICY "Admins gèrent sanctions"
   WITH CHECK (has_role('administrateur') OR has_role('secretaire_general'));
 
 -- Index pour les performances
-CREATE INDEX idx_reunions_presences_reunion ON public.reunions_presences(reunion_id);
-CREATE INDEX idx_reunions_presences_membre ON public.reunions_presences(membre_id);
-CREATE INDEX idx_reunions_sanctions_reunion ON public.reunions_sanctions(reunion_id);
-CREATE INDEX idx_reunions_sanctions_membre ON public.reunions_sanctions(membre_id);
+CREATE INDEX IF NOT EXISTS idx_reunions_presences_reunion ON public.reunions_presences(reunion_id);
+CREATE INDEX IF NOT EXISTS idx_reunions_presences_membre ON public.reunions_presences(membre_id);
+CREATE INDEX IF NOT EXISTS idx_reunions_sanctions_reunion ON public.reunions_sanctions(reunion_id);
+CREATE INDEX IF NOT EXISTS idx_reunions_sanctions_membre ON public.reunions_sanctions(membre_id);
 
 -- Fonction pour mettre à jour le timestamp
 CREATE OR REPLACE FUNCTION update_reunions_presences_updated_at()
@@ -2412,10 +2376,7 @@ CREATE TRIGGER update_reunions_sanctions_timestamp
   FOR EACH ROW
   EXECUTE FUNCTION update_reunions_sanctions_updated_at();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251201190431_6346104b-9607-464e-bac1-565e3957ca35.sql
--- ------------------------------------------------------------------------
-
 -- Phase 1: Migration pour le module Présences & Absences
 
 -- 1. Ajouter statut_presence à reunions_presences (enum: present, absent_non_excuse, absent_excuse)
@@ -2448,13 +2409,10 @@ ALTER TABLE reunions
 ADD COLUMN IF NOT EXISTS seuil_rappel_presence INTEGER DEFAULT 70;
 
 -- 7. Créer un index pour améliorer les performances des requêtes
-CREATE INDEX IF NOT EXISTS idx_reunions_presences_statut ON reunions_presences(statut_presence);
-CREATE INDEX IF NOT EXISTS idx_reunions_presences_reunion_membre ON reunions_presences(reunion_id, membre_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunions_presences_statut ON reunions_presences(statut_presence);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunions_presences_reunion_membre ON reunions_presences(reunion_id, membre_id);
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251212165951_c10feb45-6c8a-42bb-8b85-755beb86aedd.sql
--- ------------------------------------------------------------------------
-
 -- Créer le bucket pour les justificatifs
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('justificatifs', 'justificatifs', true)
@@ -2475,12 +2433,9 @@ CREATE POLICY "Authenticated users can delete their justificatifs"
 ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'justificatifs');
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251212195211_3bc98173-b65d-4086-adf8-286be96ae247.sql
--- ------------------------------------------------------------------------
-
 -- Table pour l'historique des reconductions de prêts
-CREATE TABLE public.prets_reconductions (
+CREATE TABLE IF NOT EXISTS public.prets_reconductions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   pret_id UUID NOT NULL REFERENCES public.prets(id) ON DELETE CASCADE,
   date_reconduction DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -2509,10 +2464,7 @@ UPDATE public.prets
 SET montant_paye = montant + (montant * COALESCE(taux_interet, 10) / 100) * (1 + COALESCE(reconductions, 0))
 WHERE statut = 'rembourse' AND (montant_paye IS NULL OR montant_paye = 0);
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251215140559_326306d2-04cb-4062-838f-ccb0ad35e6ea.sql
--- ------------------------------------------------------------------------
-
 -- =====================================================
 -- MIGRATION COMPLÈTE MODULE PRÊTS - CAHIER DES CHARGES
 -- =====================================================
@@ -2581,10 +2533,7 @@ BEFORE UPDATE ON public.prets_config
 FOR EACH ROW
 EXECUTE FUNCTION public.update_prets_config_updated_at();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251215144632_83edb7f8-eef3-4897-ba5d-e68e7d7b4d98.sql
--- ------------------------------------------------------------------------
-
 -- 1. Pour les prêts remboursés SANS paiements dans l'historique:
 -- Créer un paiement fictif avec la date du prêt ou une date de référence
 INSERT INTO prets_paiements (pret_id, montant_paye, date_paiement, type_paiement, mode_paiement, notes)
@@ -2629,10 +2578,7 @@ SET
   END
 WHERE statut != 'rembourse';
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251215150325_e577a280-20a7-42e7-91c7-59aabd61ec51.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter la colonne dernier_interet pour stocker le dernier intérêt calculé après reconduction
 ALTER TABLE prets ADD COLUMN IF NOT EXISTS dernier_interet NUMERIC DEFAULT 0;
 
@@ -2646,10 +2592,7 @@ UPDATE prets
 SET dernier_interet = 0
 WHERE statut = 'rembourse';
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251215153315_30ec6574-c04b-4948-9769-a2acc12c53e0.sql
--- ------------------------------------------------------------------------
-
 -- Corriger les prêts avec reconductions dont les valeurs sont incorrectes
 -- Pour chaque prêt reconduit non remboursé:
 -- - dernier_interet = (capital initial - capital_paye) × taux%
@@ -2662,10 +2605,7 @@ SET
 WHERE reconductions > 0 
   AND statut != 'rembourse';
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251215160600_17c98a9f-2745-4222-bf86-2f557f9b3065.sql
--- ------------------------------------------------------------------------
-
 -- Initialiser dernier_interet pour les prêts existants sans reconductions
 UPDATE prets 
 SET dernier_interet = COALESCE(interet_initial, montant * (COALESCE(taux_interet, 5) / 100.0))
@@ -2679,10 +2619,7 @@ SET dernier_interet = COALESCE(interet_initial, montant * (COALESCE(taux_interet
 WHERE (dernier_interet IS NULL OR dernier_interet = 0)
   AND statut = 'rembourse';
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251215173626_d0f32ecc-21ac-431d-b533-0b5d5a448ec6.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter duree_reconduction à prets_config
 ALTER TABLE prets_config 
 ADD COLUMN IF NOT EXISTS duree_reconduction INTEGER NOT NULL DEFAULT 2;
@@ -2706,10 +2643,7 @@ UPDATE prets
 SET echeance = echeance + (reconductions * interval '1 month')
 WHERE reconductions > 0 AND statut != 'rembourse';
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251215180813_6d113814-67be-4f2c-bb6e-4ab47f196168.sql
--- ------------------------------------------------------------------------
-
 -- 1. Enrichir la table fond_caisse_operations avec les nouvelles colonnes
 ALTER TABLE public.fond_caisse_operations 
 ADD COLUMN IF NOT EXISTS reunion_id UUID REFERENCES reunions(id),
@@ -2745,9 +2679,9 @@ SELECT 50000, 20000, 80
 WHERE NOT EXISTS (SELECT 1 FROM public.caisse_config);
 
 -- 6. Créer un index pour les recherches par catégorie et date
-CREATE INDEX IF NOT EXISTS idx_fond_caisse_operations_categorie ON public.fond_caisse_operations(categorie);
-CREATE INDEX IF NOT EXISTS idx_fond_caisse_operations_date ON public.fond_caisse_operations(date_operation);
-CREATE INDEX IF NOT EXISTS idx_fond_caisse_operations_source ON public.fond_caisse_operations(source_table, source_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_fond_caisse_operations_categorie ON public.fond_caisse_operations(categorie);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_fond_caisse_operations_date ON public.fond_caisse_operations(date_operation);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_fond_caisse_operations_source ON public.fond_caisse_operations(source_table, source_id);
 
 -- 7. Trigger pour updated_at sur caisse_config
 CREATE TRIGGER update_caisse_config_updated_at
@@ -2755,10 +2689,7 @@ BEFORE UPDATE ON public.caisse_config
 FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251215194145_0631d572-8c83-4272-a600-e1d1969fed2b.sql
--- ------------------------------------------------------------------------
-
 -- ============================================
 -- TRIGGERS POUR SYNCHRONISATION AUTOMATIQUE
 -- ============================================
@@ -3046,10 +2977,7 @@ AND NOT EXISTS (
   WHERE fco.source_table = 'aides' AND fco.source_id = a.id
 );
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251215200727_ae734fd8-c63f-4bb8-8bd6-a9eee28a3422.sql
--- ------------------------------------------------------------------------
-
 -- =====================================================
 -- MIGRATION RÉTROACTIVE DES DONNÉES EXISTANTES (CORRIGÉE)
 -- =====================================================
@@ -3121,10 +3049,7 @@ AND NOT EXISTS (
   WHERE fco.source_table = 'reunions_sanctions' AND fco.source_id = rs.id
 );
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251216202046_46d11b68-9bc8-4f54-8450-921a23ead5b5.sql
--- ------------------------------------------------------------------------
-
 -- Script de réparation des données historiques de reconductions manquantes
 -- Les prêts avec reconductions > 0 mais sans enregistrement dans prets_reconductions
 
@@ -3151,10 +3076,7 @@ VALUES
   ('2bdcd197-60bd-4c64-9800-340fdc64b990', '2025-11-15', 1062.50, 'Reconduction #1 (réparation historique) - Intérêt 5% sur capital restant 21,250 FCFA')
 ON CONFLICT DO NOTHING;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251216203054_a2b9be1d-a642-407a-8075-0ff6f157748c.sql
--- ------------------------------------------------------------------------
-
 -- Réparation des données de caisse
 
 -- 1. Insérer le paiement manquant dans fond_caisse_operations
@@ -3198,12 +3120,9 @@ SET categorie = 'sport'
 WHERE libelle ILIKE '%fond sport%'
   AND categorie = 'cotisation';
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251216203910_ad6e05c1-d8b8-4725-81fe-fd086463e96f.sql
--- ------------------------------------------------------------------------
-
 -- Table de configuration des sessions par type de rôle
-CREATE TABLE public.session_config (
+CREATE TABLE IF NOT EXISTS public.session_config (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   role_type TEXT NOT NULL UNIQUE,
   session_duration_minutes INTEGER NOT NULL,
@@ -3248,10 +3167,7 @@ BEFORE UPDATE ON public.session_config
 FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251219192635_1cf1dcbc-982b-4fbb-a06e-437376601fd4.sql
--- ------------------------------------------------------------------------
-
 -- 1. Ajouter la clé étrangère role_permissions → roles (si elle n'existe pas)
 DO $$
 BEGIN
@@ -3277,10 +3193,7 @@ INSERT INTO configurations (cle, valeur, description)
 VALUES ('sanction_absence_montant', '2000', 'Montant de la sanction pour absence non excusée en FCFA')
 ON CONFLICT (cle) DO NOTHING;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251223144005_59cee6fa-c8c3-4140-8dc6-a3491dd090d8.sql
--- ------------------------------------------------------------------------
-
 -- Créer le bucket de stockage pour les photos des membres
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('members-photos', 'members-photos', true)
@@ -3313,10 +3226,7 @@ FOR UPDATE
 TO authenticated
 USING (bucket_id = 'members-photos');
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251229175310_c5a3e728-0a23-49f1-ba4b-96d236adcd2e.sql
--- ------------------------------------------------------------------------
-
 -- Trigger pour synchroniser automatiquement les sanctions payées avec la caisse
 CREATE OR REPLACE FUNCTION sync_sanction_to_caisse()
 RETURNS TRIGGER AS $$
@@ -3377,20 +3287,14 @@ CREATE TRIGGER trigger_sync_sanction_caisse
 AFTER INSERT OR UPDATE ON reunions_sanctions
 FOR EACH ROW EXECUTE FUNCTION sync_sanction_to_caisse();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251231155825_b50591ed-7ab6-42bc-b4ef-7dd7c02a3898.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter la colonne taux_presence à la table reunions pour stocker le taux de présence à la clôture
 ALTER TABLE reunions ADD COLUMN IF NOT EXISTS taux_presence NUMERIC DEFAULT NULL;
 
 -- Commentaire explicatif
 COMMENT ON COLUMN reunions.taux_presence IS 'Taux de présence calculé à la clôture de la réunion (0-100)';
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251231163242_17674d2d-956f-48d3-a4a8-b7cda97a229d.sql
--- ------------------------------------------------------------------------
-
 -- Corriger la fonction create_caisse_operation_from_source
 -- Problème: le CASE évalue NEW.date_depot même pour la table cotisations
 -- Solution: utiliser IF/ELSIF pour accéder conditionnellement aux champs
@@ -3533,10 +3437,7 @@ BEGIN
 END;
 $function$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20251231164626_fac0e5a0-d503-4cc5-96e8-fc722a28671a.sql
--- ------------------------------------------------------------------------
-
 -- =====================================================
 -- CORRECTION: Synchronisation complète Prêts/Épargnes avec Caisse
 -- =====================================================
@@ -3582,10 +3483,7 @@ AND NOT EXISTS (
   WHERE source_table = 'prets' AND source_id = p.id
 );
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260102004715_a366a09e-1101-4bf9-8e45-db8d4eeeab1b.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter colonnes pour gestion mot de passe première connexion
 ALTER TABLE public.profiles 
 ADD COLUMN IF NOT EXISTS password_changed BOOLEAN DEFAULT false,
@@ -3621,25 +3519,19 @@ BEGIN
 END;
 $$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260102005623_4407be20-b886-4d37-932d-7fe75cb6de96.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter les colonnes pour lier les événements aux matchs sport
 ALTER TABLE public.cms_events ADD COLUMN IF NOT EXISTS match_id UUID;
 ALTER TABLE public.cms_events ADD COLUMN IF NOT EXISTS match_type TEXT CHECK (match_type IN ('phoenix', 'e2d'));
 ALTER TABLE public.cms_events ADD COLUMN IF NOT EXISTS auto_sync BOOLEAN DEFAULT false;
 
 -- Index pour optimiser les recherches
-CREATE INDEX IF NOT EXISTS idx_cms_events_match ON public.cms_events(match_id, match_type);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_cms_events_match ON public.cms_events(match_id, match_type);
 
 -- Ajouter colonne video_url pour support YouTube
 ALTER TABLE public.cms_gallery ADD COLUMN IF NOT EXISTS video_url TEXT;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260102013304_f3cca4e0-a844-4c6e-a904-01d2a8e432f0.sql
--- ------------------------------------------------------------------------
-
 -- Corriger le trigger handle_new_user pour utiliser role_id au lieu de role
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
@@ -3677,21 +3569,15 @@ BEGIN
 END;
 $$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260102143609_3a9e24cb-b2d7-440a-9182-1d7e13f9e01a.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter la colonne reunion_id à la table aides pour lier les aides aux réunions
 ALTER TABLE public.aides 
 ADD COLUMN reunion_id uuid REFERENCES public.reunions(id) ON DELETE SET NULL;
 
 -- Créer un index pour améliorer les performances des requêtes
-CREATE INDEX idx_aides_reunion_id ON public.aides(reunion_id);
+CREATE INDEX IF NOT EXISTS idx_aides_reunion_id ON public.aides(reunion_id);
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260102154250_28171844-f2ea-4a51-948b-bf402f74d014.sql
--- ------------------------------------------------------------------------
-
 -- Fix storage RLS policies - replace has_role(uuid, app_role) with has_role(text)
 
 -- Drop existing problematic policies for site-gallery
@@ -3802,10 +3688,7 @@ USING (
   AND (public.has_role('administrateur') OR public.has_role('admin'))
 );
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260102173608_ae3521d6-d576-4c12-9b06-ec8b6b3d62c3.sql
--- ------------------------------------------------------------------------
-
 -- Phase 1: Ajouter les configurations email dans la table configurations
 INSERT INTO configurations (cle, valeur, description) VALUES
   ('email_service', 'resend', 'Service d envoi email: resend ou smtp'),
@@ -3823,10 +3706,7 @@ CREATE POLICY "Admins peuvent modifier les donations"
 ON donations FOR UPDATE
 USING (has_role('administrateur') OR has_role('tresorier'));
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260102192758_06c396e1-9143-4df7-a022-ce0d87bc8ebb.sql
--- ------------------------------------------------------------------------
-
 -- Phase 2 & 4: Ajout type_saisie aux cotisations_types + tables pour Huile & Savon et config exercices
 
 -- 1. Ajouter colonne type_saisie aux cotisations_types (montant ou checkbox)
@@ -3889,27 +3769,18 @@ BEFORE UPDATE ON reunions_huile_savon
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260102194436_0a39a33e-3ef8-45d1-b194-bda7de83547d.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter la configuration de sanction pour Huile et Savon
 INSERT INTO configurations (cle, valeur, description)
 VALUES ('sanction_huile_savon_montant', '2000', 'Montant de la sanction pour Huile & Savon non apporté (FCFA)')
 ON CONFLICT (cle) DO NOTHING;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260102201437_96b941ef-f100-4f80-ad64-3d6e59255590.sql
--- ------------------------------------------------------------------------
-
 -- Supprimer la table obsolète reunion_presences (0 enregistrements, non utilisée)
 -- Toutes les données de présence utilisent la table reunions_presences
 DROP TABLE IF EXISTS reunion_presences;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260105143643_93d73b53-2ebe-46f0-8e1a-61e6e61c1a59.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter les entrées de configuration pour les images du site
 INSERT INTO site_config (cle, valeur, description, type, categorie) VALUES
   ('events_fallback_image', '', 'Image par défaut de la section Événements (quand aucun événement avec image)', 'image', 'images'),
@@ -3917,10 +3788,7 @@ INSERT INTO site_config (cle, valeur, description, type, categorie) VALUES
   ('site_logo', '', 'Logo principal du site affiché dans le header', 'image', 'images')
 ON CONFLICT (cle) DO NOTHING;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260105154533_0a044c00-5a56-4079-a6d4-2207c73fac46.sql
--- ------------------------------------------------------------------------
-
 -- 1. Création du bucket pour les images du site (public)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('site-images', 'site-images', true)
@@ -3954,18 +3822,12 @@ ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'site-images');
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260105170456_ad80e0ad-6a98-4016-97e9-30c3aca460cc.sql
--- ------------------------------------------------------------------------
-
 -- Nettoyage des policies RLS dupliquées sur role_permissions
 DROP POLICY IF EXISTS "Administrateurs peuvent gérer les permissions" ON role_permissions;
 DROP POLICY IF EXISTS "Tous peuvent voir les permissions" ON role_permissions;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260105171101_5d825fae-350e-4f3d-8812-d80eee3e133a.sql
--- ------------------------------------------------------------------------
-
 -- Ajout du champ contexte à la table reunions_sanctions pour distinguer les sanctions Sport vs Réunion
 ALTER TABLE reunions_sanctions 
 ADD COLUMN IF NOT EXISTS contexte VARCHAR(20) DEFAULT 'reunion';
@@ -3974,12 +3836,9 @@ ADD COLUMN IF NOT EXISTS contexte VARCHAR(20) DEFAULT 'reunion';
 COMMENT ON COLUMN reunions_sanctions.contexte IS 'Contexte de la sanction: reunion, sport, autre';
 
 -- Index pour optimiser le filtrage par contexte
-CREATE INDEX IF NOT EXISTS idx_reunions_sanctions_contexte ON reunions_sanctions(contexte);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunions_sanctions_contexte ON reunions_sanctions(contexte);
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260105190910_a858453c-40e3-4a77-b174-f70aff7d7aed.sql
--- ------------------------------------------------------------------------
-
 -- Supprimer l'ancienne politique cassée
 DROP POLICY IF EXISTS "Admins peuvent gérer config" ON site_config;
 
@@ -3991,10 +3850,7 @@ TO authenticated
 USING (public.has_role('administrateur'))
 WITH CHECK (public.has_role('administrateur'));
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260108154915_3911ac5d-e5ea-4c54-8d11-281b23c8cd04.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter les types de notifications manquants
 INSERT INTO notifications_config (type_notification, actif, delai_jours, template_sujet, template_contenu)
 VALUES 
@@ -4041,10 +3897,7 @@ Cordialement,
 L''équipe E2D')
 ON CONFLICT (type_notification) DO NOTHING;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260108173040_f5d2fe06-bfde-4bb4-a8be-846806df3dfe.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter la colonne statut_publication à sport_e2d_matchs
 ALTER TABLE sport_e2d_matchs 
 ADD COLUMN IF NOT EXISTS statut_publication TEXT DEFAULT 'brouillon' 
@@ -4053,12 +3906,9 @@ CHECK (statut_publication IN ('brouillon', 'publie', 'archive'));
 COMMENT ON COLUMN sport_e2d_matchs.statut_publication IS 
 'Contrôle la visibilité sur le site web : brouillon (interne), publie (visible), archive (masqué)';
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260108180613_e0f03e31-f5c0-42d7-bfb6-1d56b11d0f9b.sql
--- ------------------------------------------------------------------------
-
 -- Table pour les comptes rendus de matchs E2D
-CREATE TABLE public.match_compte_rendus (
+CREATE TABLE IF NOT EXISTS public.match_compte_rendus (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id UUID NOT NULL REFERENCES public.sport_e2d_matchs(id) ON DELETE CASCADE,
   resume TEXT,
@@ -4074,7 +3924,7 @@ CREATE TABLE public.match_compte_rendus (
 );
 
 -- Table pour les médias de matchs E2D
-CREATE TABLE public.match_medias (
+CREATE TABLE IF NOT EXISTS public.match_medias (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id UUID NOT NULL REFERENCES public.sport_e2d_matchs(id) ON DELETE CASCADE,
   url TEXT NOT NULL,
@@ -4152,22 +4002,19 @@ USING (
 );
 
 -- Index pour performances
-CREATE INDEX idx_match_compte_rendus_match_id ON public.match_compte_rendus(match_id);
-CREATE INDEX idx_match_medias_match_id ON public.match_medias(match_id);
-CREATE INDEX idx_match_medias_ordre ON public.match_medias(match_id, ordre);
+CREATE INDEX IF NOT EXISTS idx_match_compte_rendus_match_id ON public.match_compte_rendus(match_id);
+CREATE INDEX IF NOT EXISTS idx_match_medias_match_id ON public.match_medias(match_id);
+CREATE INDEX IF NOT EXISTS idx_match_medias_ordre ON public.match_medias(match_id, ordre);
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260108181947_39add62b-8cee-44e3-846c-91eaefdf685b.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter membre_id à match_statistics pour lier les stats aux membres
 ALTER TABLE match_statistics 
 ADD COLUMN IF NOT EXISTS membre_id UUID REFERENCES membres(id) ON DELETE SET NULL;
 
 -- Créer des index pour les performances
-CREATE INDEX IF NOT EXISTS idx_match_statistics_membre ON match_statistics(membre_id);
-CREATE INDEX IF NOT EXISTS idx_match_statistics_match_type ON match_statistics(match_type);
-CREATE INDEX IF NOT EXISTS idx_match_statistics_match_id ON match_statistics(match_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_match_statistics_membre ON match_statistics(membre_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_match_statistics_match_type ON match_statistics(match_type);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_match_statistics_match_id ON match_statistics(match_id);
 
 -- Mettre à jour les enregistrements existants en mappant player_name vers membre_id
 UPDATE match_statistics ms
@@ -4208,10 +4055,7 @@ LEFT JOIN match_statistics ms ON ms.membre_id = m.id AND ms.match_type = 'e2d'
 WHERE m.est_membre_e2d = true AND m.statut = 'actif'
 GROUP BY m.id, m.nom, m.prenom, m.photo_url, m.equipe_e2d;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260108182256_512dc0a4-4374-4731-839e-73117d0581d7.sql
--- ------------------------------------------------------------------------
-
 -- Supprimer la vue SECURITY DEFINER et la recréer sans cette propriété
 DROP VIEW IF EXISTS e2d_player_stats_view;
 
@@ -4245,10 +4089,7 @@ LEFT JOIN match_statistics ms ON ms.membre_id = m.id AND ms.match_type = 'e2d'
 WHERE m.est_membre_e2d = true AND m.statut = 'actif'
 GROUP BY m.id, m.nom, m.prenom, m.photo_url, m.equipe_e2d;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260108184229_1ac35f4a-b8c0-4953-b0b8-d67a6ba095f5.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter colonnes status et last_login à la table profiles (si pas déjà ajoutées)
 DO $$
 BEGIN
@@ -4306,15 +4147,12 @@ FOR ALL
 USING (id = auth.uid())
 WITH CHECK (id = auth.uid());
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260108190132_746277e4-3929-45d6-862c-7405d6ca5545.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter la colonne email à profiles
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email TEXT;
 
 -- Créer un index unique sur email (permettant les null)
-CREATE UNIQUE INDEX IF NOT EXISTS profiles_email_unique_idx ON public.profiles(email) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS IF NOT EXISTS profiles_email_unique_idx ON public.profiles(email) WHERE email IS NOT NULL;
 
 -- Mettre à jour le trigger handle_new_user pour inclure l'email
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -4354,10 +4192,7 @@ BEGIN
 END;
 $$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260109101009_bba8b91d-6be0-4d94-8159-6c30480b0831.sql
--- ------------------------------------------------------------------------
-
 -- 1. Normaliser les rôles (fusionner doublons avec casse différente)
 -- D'abord mettre à jour les références user_roles vers le rôle en minuscule
 UPDATE public.user_roles 
@@ -4424,10 +4259,7 @@ TO authenticated
 USING (auth.uid() = id)
 WITH CHECK (auth.uid() = id);
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260109105616_40ea48c0-b7bb-4c4b-a32f-ca6c88ff7008.sql
--- ------------------------------------------------------------------------
-
 -- 1. Fix has_role function to work with role_id instead of role column
 CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
 RETURNS BOOLEAN
@@ -4527,10 +4359,7 @@ CREATE POLICY "Admins can update event images" ON storage.objects FOR UPDATE
 CREATE POLICY "Admins can delete event images" ON storage.objects FOR DELETE
   USING (bucket_id = 'site-events' AND public.is_admin());
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260109114211_4f3ba244-1d0e-45a6-98f1-67918edd96db.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter colonne verrouillage à cotisations_membres
 ALTER TABLE public.cotisations_membres 
 ADD COLUMN IF NOT EXISTS verrouille BOOLEAN DEFAULT false;
@@ -4555,10 +4384,7 @@ AFTER UPDATE ON public.exercices
 FOR EACH ROW
 EXECUTE FUNCTION public.verrouiller_cotisations_on_exercice_actif();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260109165807_111c7378-8b44-402a-86cf-6428b1ea8ef0.sql
--- ------------------------------------------------------------------------
-
 -- =====================================================
 -- TABLE DÉDIÉE: Cotisation Mensuelle par Membre/Exercice
 -- =====================================================
@@ -4577,8 +4403,8 @@ CREATE TABLE IF NOT EXISTS public.cotisations_mensuelles_exercice (
 );
 
 -- 2. Créer les index pour les performances
-CREATE INDEX IF NOT EXISTS idx_cotisations_mensuelles_exercice_membre ON public.cotisations_mensuelles_exercice(membre_id);
-CREATE INDEX IF NOT EXISTS idx_cotisations_mensuelles_exercice_exercice ON public.cotisations_mensuelles_exercice(exercice_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_cotisations_mensuelles_exercice_membre ON public.cotisations_mensuelles_exercice(membre_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_cotisations_mensuelles_exercice_exercice ON public.cotisations_mensuelles_exercice(exercice_id);
 
 -- 3. Activer RLS
 ALTER TABLE public.cotisations_mensuelles_exercice ENABLE ROW LEVEL SECURITY;
@@ -4679,10 +4505,7 @@ AS $$
   );
 $$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260112195530_97f43d60-2758-4adf-b9b4-5e7d40a06d2e.sql
--- ------------------------------------------------------------------------
-
 -- ======================================================
 -- MODULE BÉNÉFICIAIRES COTISATIONS - MIGRATION COMPLÈTE
 -- ======================================================
@@ -4704,8 +4527,8 @@ CREATE TABLE IF NOT EXISTS public.calendrier_beneficiaires (
   CONSTRAINT unique_membre_par_exercice UNIQUE (exercice_id, membre_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_calendrier_beneficiaires_exercice ON public.calendrier_beneficiaires(exercice_id);
-CREATE INDEX IF NOT EXISTS idx_calendrier_beneficiaires_membre ON public.calendrier_beneficiaires(membre_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_calendrier_beneficiaires_exercice ON public.calendrier_beneficiaires(exercice_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_calendrier_beneficiaires_membre ON public.calendrier_beneficiaires(membre_id);
 
 CREATE TRIGGER update_calendrier_beneficiaires_updated_at
 BEFORE UPDATE ON public.calendrier_beneficiaires
@@ -4742,9 +4565,9 @@ CREATE TABLE IF NOT EXISTS public.beneficiaires_paiements_audit (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_beneficiaires_audit_membre ON public.beneficiaires_paiements_audit(membre_id);
-CREATE INDEX IF NOT EXISTS idx_beneficiaires_audit_reunion ON public.beneficiaires_paiements_audit(reunion_id);
-CREATE INDEX IF NOT EXISTS idx_beneficiaires_audit_date ON public.beneficiaires_paiements_audit(created_at DESC);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_beneficiaires_audit_membre ON public.beneficiaires_paiements_audit(membre_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_beneficiaires_audit_reunion ON public.beneficiaires_paiements_audit(reunion_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_beneficiaires_audit_date ON public.beneficiaires_paiements_audit(created_at DESC);
 
 -- 4. FONCTION POUR CALCULER LE MONTANT À PAYER
 CREATE OR REPLACE FUNCTION public.calculer_montant_beneficiaire(
@@ -4860,10 +4683,7 @@ GRANT ALL ON public.calendrier_beneficiaires TO authenticated;
 GRANT ALL ON public.beneficiaires_paiements_audit TO authenticated;
 GRANT EXECUTE ON FUNCTION public.calculer_montant_beneficiaire TO authenticated;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260112200721_b2374307-daff-489e-8264-b6cf31314a48.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter search_path aux fonctions manquantes pour éviter les problèmes de sécurité
 
 -- 1. update_reunions_presences_updated_at
@@ -4926,12 +4746,9 @@ BEGIN
 END;
 $function$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260112202219_ea6434cf-14f1-4b38-8c97-74b08a04424d.sql
--- ------------------------------------------------------------------------
-
 -- Create table to log user actions
-CREATE TABLE public.utilisateurs_actions_log (
+CREATE TABLE IF NOT EXISTS public.utilisateurs_actions_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
   action TEXT NOT NULL,
@@ -4960,13 +4777,10 @@ TO authenticated
 WITH CHECK (true);
 
 -- Add index for faster queries
-CREATE INDEX idx_utilisateurs_actions_log_user_id ON public.utilisateurs_actions_log(user_id);
-CREATE INDEX idx_utilisateurs_actions_log_performed_at ON public.utilisateurs_actions_log(performed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_utilisateurs_actions_log_user_id ON public.utilisateurs_actions_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_utilisateurs_actions_log_performed_at ON public.utilisateurs_actions_log(performed_at DESC);
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260114160029_1a84e0e4-0755-4fc5-ba32-3fdab622a6b6.sql
--- ------------------------------------------------------------------------
-
 -- ============================================
 -- PHASE 1: PERMISSIONS BACKEND - SECURITY UPDATE
 -- ============================================
@@ -5213,10 +5027,7 @@ CREATE POLICY "sanctions_delete_permission" ON sanctions
 FOR DELETE TO authenticated
 USING (public.has_permission('sanctions', 'delete'));
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260114161226_30819e42-e6c1-49ec-b7f5-8daf1121ca74.sql
--- ------------------------------------------------------------------------
-
 -- Phase 2: Nettoyer les anciennes RLS policies permissives
 
 -- Réunions
@@ -5247,10 +5058,7 @@ DROP POLICY IF EXISTS "Trésoriers peuvent gérer les prêts" ON prets;
 DROP POLICY IF EXISTS "Membres actifs visibles par tous" ON membres;
 DROP POLICY IF EXISTS "Secrétaires peuvent gérer les membres" ON membres;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260114172355_fb21c4c6-d85f-438c-ad93-66f69ec41d11.sql
--- ------------------------------------------------------------------------
-
 -- Fonction de synchronisation membre vers profil
 CREATE OR REPLACE FUNCTION public.sync_membre_to_profile()
 RETURNS TRIGGER
@@ -5283,10 +5091,7 @@ CREATE TRIGGER trigger_sync_membre_to_profile
      OR OLD.telephone IS DISTINCT FROM NEW.telephone)
   EXECUTE FUNCTION sync_membre_to_profile();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260120192845_007e55f4-efd9-4a7a-b40b-4f7f91886766.sql
--- ------------------------------------------------------------------------
-
 -- Migration: Ajout des colonnes pour la synchronisation E2D vers site_events
 -- et création de la table notifications_logs
 
@@ -5297,8 +5102,8 @@ ADD COLUMN IF NOT EXISTS match_type VARCHAR(50),
 ADD COLUMN IF NOT EXISTS auto_sync BOOLEAN DEFAULT false;
 
 -- 2. Index pour performances
-CREATE INDEX IF NOT EXISTS idx_site_events_match_id ON public.site_events(match_id);
-CREATE INDEX IF NOT EXISTS idx_site_events_auto_sync ON public.site_events(auto_sync) WHERE auto_sync = true;
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_site_events_match_id ON public.site_events(match_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_site_events_auto_sync ON public.site_events(auto_sync) WHERE auto_sync = true;
 
 -- 3. Créer la table notifications_logs pour le suivi des envois
 CREATE TABLE IF NOT EXISTS public.notifications_logs (
@@ -5316,10 +5121,10 @@ CREATE TABLE IF NOT EXISTS public.notifications_logs (
 );
 
 -- Index pour les logs
-CREATE INDEX IF NOT EXISTS idx_notifications_logs_statut ON public.notifications_logs(statut);
-CREATE INDEX IF NOT EXISTS idx_notifications_logs_destinataire ON public.notifications_logs(destinataire_email);
-CREATE INDEX IF NOT EXISTS idx_notifications_logs_campagne ON public.notifications_logs(campagne_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_logs_created ON public.notifications_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_notifications_logs_statut ON public.notifications_logs(statut);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_notifications_logs_destinataire ON public.notifications_logs(destinataire_email);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_notifications_logs_campagne ON public.notifications_logs(campagne_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_notifications_logs_created ON public.notifications_logs(created_at DESC);
 
 -- RLS pour notifications_logs
 ALTER TABLE public.notifications_logs ENABLE ROW LEVEL SECURITY;
@@ -5339,10 +5144,7 @@ COMMENT ON COLUMN public.site_events.match_id IS 'ID du match E2D synchronisé (
 COMMENT ON COLUMN public.site_events.match_type IS 'Type de match (e2d, phoenix) pour tracking';
 COMMENT ON COLUMN public.site_events.auto_sync IS 'Indique si l''événement est synchronisé automatiquement';
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260123120755_a4a9d8ea-e027-4fe1-ae4d-5e55554da43d.sql
--- ------------------------------------------------------------------------
-
 -- PHASE 6: Multi-bénéficiaires par mois
 -- Supprimer la contrainte d'unicité exercice+mois si elle existe
 ALTER TABLE calendrier_beneficiaires 
@@ -5353,10 +5155,10 @@ ALTER TABLE calendrier_beneficiaires
 ADD COLUMN IF NOT EXISTS ordre_mois INTEGER DEFAULT 1;
 
 -- Index pour améliorer les performances
-CREATE INDEX IF NOT EXISTS idx_cotisations_reunion_exercice 
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_cotisations_reunion_exercice 
 ON cotisations(reunion_id, exercice_id);
 
-CREATE INDEX IF NOT EXISTS idx_calendrier_beneficiaires_mois 
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_calendrier_beneficiaires_mois 
 ON calendrier_beneficiaires(exercice_id, mois_benefice);
 
 -- Ajouter les configurations de déclencheurs automatiques si manquantes
@@ -5378,10 +5180,7 @@ INSERT INTO configurations (cle, valeur, description)
 VALUES ('sanction_absence_montant', '500', 'Montant de la sanction pour absence non excusée en FCFA')
 ON CONFLICT (cle) DO NOTHING;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260123200205_bf804999-cbae-41c5-9d3d-72c0249e08d1.sql
--- ------------------------------------------------------------------------
-
 -- ============================================
 -- MIGRATION: Corrections des 18 points de non-conformité
 -- ============================================
@@ -5484,13 +5283,10 @@ VALUES
 ON CONFLICT (code) DO NOTHING;
 
 -- 5. Ajouter index pour performance
-CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260126164730_826f029b-5369-49bf-af06-c2dd4d6025fa.sql
--- ------------------------------------------------------------------------
-
 -- Insérer l'entrée par défaut pour resend_api_key si elle n'existe pas
 INSERT INTO configurations (cle, valeur, description)
 VALUES (
@@ -5500,10 +5296,7 @@ VALUES (
 )
 ON CONFLICT (cle) DO NOTHING;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260127184505_a04678e0-5b8c-4ad3-abde-6bcad5334f43.sql
--- ------------------------------------------------------------------------
-
 -- Nettoyer l'espace parasite dans le serveur SMTP
 UPDATE smtp_config 
 SET serveur_smtp = TRIM(serveur_smtp);
@@ -5511,10 +5304,7 @@ SET serveur_smtp = TRIM(serveur_smtp);
 -- Supprimer la clé dupliquée email_mode (garder uniquement email_service)
 DELETE FROM configurations WHERE cle = 'email_mode';
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260130162148_272abccf-c944-4d08-ad55-08f2913d22b6.sql
--- ------------------------------------------------------------------------
-
 -- =====================================================
 -- RENFORCEMENT DES POLITIQUES RLS PERMISSIVES
 -- =====================================================
@@ -5585,10 +5375,7 @@ WITH CHECK (
 -- 7. Nettoyage politique SELECT dupliquée sur messages_contact
 DROP POLICY IF EXISTS "Authenticated can view messages" ON messages_contact;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260210184135_a652e725-2f32-4d44-8405-8309b8e4031c.sql
--- ------------------------------------------------------------------------
-
 
 -- ================================================================
 -- Migration: Corrections manquements Aides & Fonds de Caisse
@@ -5635,10 +5422,7 @@ BEFORE UPDATE ON public.fond_caisse_operations
 FOR EACH ROW EXECUTE FUNCTION public.update_caisse_operation_audit();
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260210185831_b697923b-e682-4ca2-9b4a-1f21bd592d45.sql
--- ------------------------------------------------------------------------
-
 
 -- =============================================
 -- Fix: Update create_caisse_operation_from_source to handle DELETE and status changes
@@ -5832,20 +5616,14 @@ CREATE TRIGGER trigger_caisse_prets_delete
   EXECUTE FUNCTION create_caisse_operation_from_source();
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260212170106_5d85275f-48dc-4579-9910-336c38e78495.sql
--- ------------------------------------------------------------------------
-
 -- Fix: set older duplicate active exercice to 'cloture' so we can enforce uniqueness
 UPDATE public.exercices SET statut = 'cloture' WHERE id = '9f764af9-3239-4838-9017-86f2ad8a9ad0' AND statut = 'actif';
 
 -- Point 4: Enforce single active exercice via partial unique index
-CREATE UNIQUE INDEX idx_exercice_actif_unique ON public.exercices (statut) WHERE statut = 'actif';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_exercice_actif_unique ON public.exercices (statut) WHERE statut = 'actif';
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260212201837_fcabc624-b1c1-4910-b7e5-e595abf5b6e9.sql
--- ------------------------------------------------------------------------
-
 
 -- 1. CRITIQUE: Restreindre la table configurations aux admins uniquement
 DROP POLICY IF EXISTS "Tous peuvent voir les configurations" ON configurations;
@@ -5877,10 +5655,7 @@ AS $$
 $$;
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260219162854_57d163d5-42ad-4238-a5c3-eb82f5b7a70d.sql
--- ------------------------------------------------------------------------
-
 
 -- Étape 1 : Modifier la contrainte sur payment_configs.provider
 ALTER TABLE public.payment_configs
@@ -5899,10 +5674,7 @@ ALTER TABLE public.donations
   CHECK (payment_method IN ('stripe', 'paypal', 'helloasso', 'bank_transfer', 'orange_money', 'mtn_money'));
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260219181856_56013e34-a418-49ef-8369-32643787c9c3.sql
--- ------------------------------------------------------------------------
-
 
 -- Suppression de l'ancienne politique trop restrictive
 DROP POLICY IF EXISTS "Public peut insérer des donations validées" ON public.donations;
@@ -5923,18 +5695,12 @@ WITH CHECK (
 );
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260220174434_27130fa9-90ae-4c84-aca2-7af3b1db37c2.sql
--- ------------------------------------------------------------------------
-
 -- Ajouter album_id nullable sur site_events pour lier un événement à un album galerie
 ALTER TABLE public.site_events
   ADD COLUMN IF NOT EXISTS album_id uuid REFERENCES public.site_gallery_albums(id) ON DELETE SET NULL;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260226105054_6ffecf8e-63bd-455b-8c4a-5548aaad0d93.sql
--- ------------------------------------------------------------------------
-
 INSERT INTO role_permissions (role_id, resource, permission, granted) VALUES
 -- administrateur: full access
 ('41cb2f00-36c5-4b3e-977b-819484effc98', 'caisse', 'read', true),
@@ -5951,10 +5717,7 @@ INSERT INTO role_permissions (role_id, resource, permission, granted) VALUES
 -- censeur: read only
 ('5a918f05-1b01-455a-b26e-4fd6f244d3da', 'caisse', 'read', true);
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260330193505_b55f83ba-a91a-47dd-9f44-3e460cc2d583.sql
--- ------------------------------------------------------------------------
-
 
 -- Ajouter image_url à sport_e2d_matchs
 ALTER TABLE sport_e2d_matchs ADD COLUMN IF NOT EXISTS image_url TEXT;
@@ -5979,10 +5742,7 @@ CREATE POLICY "Update match_joueurs admin" ON match_joueurs FOR UPDATE TO authen
 CREATE POLICY "Delete match_joueurs admin" ON match_joueurs FOR DELETE TO authenticated USING (public.is_admin());
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260428191817_d29906e8-a2b9-4273-bfff-dd1e58bb1a75.sql
--- ------------------------------------------------------------------------
-
 -- =====================================================================
 -- LOT 1 — CAISSE : Source de vérité backend pour tous les calculs
 -- =====================================================================
@@ -6144,10 +5904,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.get_caisse_stats() TO authenticated;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260428192010_2fd5c94e-102b-4736-b9b8-ec587d4ba0a2.sql
--- ------------------------------------------------------------------------
-
 -- Lot 2 — workflow validation reconductions
 
 ALTER TABLE public.prets_reconductions
@@ -6156,7 +5913,7 @@ ALTER TABLE public.prets_reconductions
   ADD COLUMN IF NOT EXISTS validee_par uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS validee_le timestamptz;
 
-CREATE INDEX IF NOT EXISTS idx_prets_reconductions_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_prets_reconductions_statut
   ON public.prets_reconductions(statut);
 
 -- Trigger : forcer 'en_attente' si l'auteur n'est ni admin ni trésorier
@@ -6184,10 +5941,7 @@ CREATE TRIGGER trg_enforce_reconduction_validation
   BEFORE INSERT OR UPDATE ON public.prets_reconductions
   FOR EACH ROW EXECUTE FUNCTION public.enforce_reconduction_validation();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260428192654_b4ca07cf-d6a9-4fd0-a631-3eaa8571847f.sql
--- ------------------------------------------------------------------------
-
 CREATE OR REPLACE FUNCTION public.projeter_cotisations_reunion(_reunion_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -6271,10 +6025,7 @@ EXECUTE FUNCTION public.trg_projeter_cotisations_on_open();
 
 GRANT EXECUTE ON FUNCTION public.projeter_cotisations_reunion(uuid) TO authenticated;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260428194015_3d898fe0-d512-4f62-adc8-c36bffce203d.sql
--- ------------------------------------------------------------------------
-
 CREATE OR REPLACE FUNCTION public.calculer_montant_beneficiaire(p_membre_id uuid, p_exercice_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -6323,10 +6074,7 @@ BEGIN
 END;
 $function$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260428194836_8387d7a2-d130-4af1-9962-9556f2e5db36.sql
--- ------------------------------------------------------------------------
-
 DO $$
 DECLARE r record;
 BEGIN
@@ -6335,15 +6083,12 @@ BEGIN
   END LOOP;
 END $$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260428200651_dbddb61a-4ed2-4624-a3e4-79a9323c926b.sql
--- ------------------------------------------------------------------------
-
 
 -- ============================================================================
 -- TABLE 1 : Configuration workflow
 -- ============================================================================
-CREATE TABLE public.loan_validation_config (
+CREATE TABLE IF NOT EXISTS public.loan_validation_config (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   role text NOT NULL UNIQUE,
   label text NOT NULL,
@@ -6353,7 +6098,7 @@ CREATE TABLE public.loan_validation_config (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_lvc_ordre ON public.loan_validation_config(ordre) WHERE actif = true;
+CREATE INDEX IF NOT EXISTS idx_lvc_ordre ON public.loan_validation_config(ordre) WHERE actif = true;
 
 CREATE TRIGGER trg_lvc_updated_at
   BEFORE UPDATE ON public.loan_validation_config
@@ -6368,7 +6113,7 @@ INSERT INTO public.loan_validation_config (role, label, ordre, actif) VALUES
 -- ============================================================================
 -- TABLE 2 : Demandes de prêt
 -- ============================================================================
-CREATE TABLE public.loan_requests (
+CREATE TABLE IF NOT EXISTS public.loan_requests (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   membre_id uuid NOT NULL REFERENCES public.membres(id) ON DELETE RESTRICT,
   montant numeric NOT NULL CHECK (montant > 0),
@@ -6387,9 +6132,9 @@ CREATE TABLE public.loan_requests (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_lr_membre ON public.loan_requests(membre_id);
-CREATE INDEX idx_lr_statut ON public.loan_requests(statut);
-CREATE INDEX idx_lr_current_step ON public.loan_requests(current_step) WHERE statut = 'in_progress';
+CREATE INDEX IF NOT EXISTS idx_lr_membre ON public.loan_requests(membre_id);
+CREATE INDEX IF NOT EXISTS idx_lr_statut ON public.loan_requests(statut);
+CREATE INDEX IF NOT EXISTS idx_lr_current_step ON public.loan_requests(current_step) WHERE statut = 'in_progress';
 
 CREATE TRIGGER trg_lr_updated_at
   BEFORE UPDATE ON public.loan_requests
@@ -6398,7 +6143,7 @@ CREATE TRIGGER trg_lr_updated_at
 -- ============================================================================
 -- TABLE 3 : Étapes de validation
 -- ============================================================================
-CREATE TABLE public.loan_request_validations (
+CREATE TABLE IF NOT EXISTS public.loan_request_validations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   loan_request_id uuid NOT NULL REFERENCES public.loan_requests(id) ON DELETE CASCADE,
   role text NOT NULL,
@@ -6413,8 +6158,8 @@ CREATE TABLE public.loan_request_validations (
   UNIQUE (loan_request_id, ordre)
 );
 
-CREATE INDEX idx_lrv_request ON public.loan_request_validations(loan_request_id);
-CREATE INDEX idx_lrv_pending ON public.loan_request_validations(loan_request_id, ordre)
+CREATE INDEX IF NOT EXISTS idx_lrv_request ON public.loan_request_validations(loan_request_id);
+CREATE INDEX IF NOT EXISTS idx_lrv_pending ON public.loan_request_validations(loan_request_id, ordre)
   WHERE statut = 'pending';
 
 -- ============================================================================
@@ -6871,10 +6616,7 @@ GRANT EXECUTE ON FUNCTION public.get_loan_request_validators_emails(uuid) TO aut
 GRANT EXECUTE ON FUNCTION public.get_loan_request_member_email(uuid) TO authenticated;
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260428201500_e6d62e9f-b92a-4708-b058-add00f5f17e5.sql
--- ------------------------------------------------------------------------
-
 
 -- ============================================
 -- RPC: Workflow configuration management
@@ -7025,10 +6767,7 @@ BEGIN
 END $$;
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260428202444_f3313a80-1dda-4a26-bb94-3885d26a898a.sql
--- ------------------------------------------------------------------------
-
 DROP TRIGGER IF EXISTS loan_request_init_steps ON public.loan_requests;
 CREATE TRIGGER loan_request_init_steps
 AFTER INSERT ON public.loan_requests
@@ -7052,22 +6791,16 @@ CREATE TRIGGER loan_validation_config_updated_at
 BEFORE UPDATE ON public.loan_validation_config
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260428202508_9a780bda-f14b-4b70-920a-93d4946e7fe4.sql
--- ------------------------------------------------------------------------
-
 DROP TRIGGER IF EXISTS loan_request_init_steps ON public.loan_requests;
 DROP TRIGGER IF EXISTS loan_requests_updated_at ON public.loan_requests;
 DROP TRIGGER IF EXISTS loan_request_advance ON public.loan_request_validations;
 DROP TRIGGER IF EXISTS loan_validation_config_updated_at ON public.loan_validation_config;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260430154209_f41ffe21-0d0a-4ccb-86df-ac6db28c4542.sql
--- ------------------------------------------------------------------------
-
 
 -- Empêche qu'un même user_id soit lié à plusieurs membres
-CREATE UNIQUE INDEX IF NOT EXISTS idx_membres_user_id_unique
+CREATE UNIQUE INDEX IF NOT EXISTS IF NOT EXISTS idx_membres_user_id_unique
   ON public.membres(user_id)
   WHERE user_id IS NOT NULL;
 
@@ -7094,10 +6827,7 @@ REVOKE ALL ON FUNCTION public.audit_auth_membres_sync() FROM PUBLIC, anon, authe
 GRANT EXECUTE ON FUNCTION public.audit_auth_membres_sync() TO authenticated;
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260430160933_46e2fb2f-9f2e-4bea-9d6f-898ff56f7a0f.sql
--- ------------------------------------------------------------------------
-
 -- 1) Table dédiée aux logs d'envoi d'email transactionnels
 CREATE TABLE IF NOT EXISTS public.email_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -7111,9 +6841,9 @@ CREATE TABLE IF NOT EXISTS public.email_logs (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_email_logs_created_at ON public.email_logs (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_email_logs_status ON public.email_logs (status);
-CREATE INDEX IF NOT EXISTS idx_email_logs_to_email ON public.email_logs (to_email);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_email_logs_created_at ON public.email_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_email_logs_status ON public.email_logs (status);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_email_logs_to_email ON public.email_logs (to_email);
 
 ALTER TABLE public.email_logs ENABLE ROW LEVEL SECURITY;
 
@@ -7149,10 +6879,7 @@ INSERT INTO public.configurations (cle, valeur, description)
 VALUES ('email_service', 'resend', 'Service email actif (resend|smtp)')
 ON CONFLICT (cle) DO UPDATE SET description = EXCLUDED.description;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260430182120_1db1e7ae-1eb3-47a1-a58b-240966a3b068.sql
--- ------------------------------------------------------------------------
-
 UPDATE storage.buckets SET public = false WHERE id = 'justificatifs';
 
 DROP POLICY IF EXISTS "Authenticated users can upload justificatifs" ON storage.objects;
@@ -7175,10 +6902,7 @@ CREATE POLICY "Justificatifs: delete admin or owner"
 ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'justificatifs' AND (public.is_admin() OR owner = auth.uid()));
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260430184550_3edd3770-fa7b-49a6-a22d-0ad327f636f0.sql
--- ------------------------------------------------------------------------
-
 -- Table de tracking des consultations du site
 CREATE TABLE IF NOT EXISTS public.site_pageviews (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -7191,9 +6915,9 @@ CREATE TABLE IF NOT EXISTS public.site_pageviews (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_pageviews_created_at ON public.site_pageviews(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_pageviews_path ON public.site_pageviews(path);
-CREATE INDEX IF NOT EXISTS idx_pageviews_user_id ON public.site_pageviews(user_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_pageviews_created_at ON public.site_pageviews(created_at DESC);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_pageviews_path ON public.site_pageviews(path);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_pageviews_user_id ON public.site_pageviews(user_id);
 
 ALTER TABLE public.site_pageviews ENABLE ROW LEVEL SECURITY;
 
@@ -7217,10 +6941,7 @@ CREATE POLICY "admins_can_delete_pageviews"
   TO authenticated
   USING (public.is_admin());
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260430191424_0f20e084-6e0c-464f-bbf0-027443ebda3a.sql
--- ------------------------------------------------------------------------
-
 -- Normaliser les valeurs legacy
 UPDATE public.historique_connexion SET statut = 'succes' WHERE statut = 'reussi';
 
@@ -7230,10 +6951,7 @@ ALTER TABLE public.historique_connexion
   ADD CONSTRAINT historique_connexion_statut_check
   CHECK (statut IN ('succes', 'echec', 'bloque'));
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260505191935_f06f9987-b4ca-4f2d-86d2-3c2e02a39813.sql
--- ------------------------------------------------------------------------
-
 
 -- 1) adhesions: restrict SELECT/UPDATE to admin/tresorier
 DROP POLICY IF EXISTS "Authenticated can view adhesions" ON public.adhesions;
@@ -7293,10 +7011,7 @@ TO authenticated
 USING (public.has_role('administrateur') OR public.has_role('tresorier'));
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260512154016_e4d519d6-a8d0-4499-b6e5-6154485d0ef6.sql
--- ------------------------------------------------------------------------
-
 
 -- Helper: current authenticated user's membre id
 CREATE OR REPLACE FUNCTION public.current_membre_id()
@@ -7404,10 +7119,7 @@ CREATE POLICY "Authenticated can read active"
   USING (is_active = true OR public.is_admin());
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260512180040_19ce8211-d282-4064-8684-0e10a9dcbb25.sql
--- ------------------------------------------------------------------------
-
 
 -- 1. messages_contact: restrict SELECT to admin/secretaire
 DROP POLICY IF EXISTS "Authenticated users can view messages" ON public.messages_contact;
@@ -7498,11 +7210,8 @@ BEGIN
 END $$;
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260512182143_d1730e93-1602-4614-aac9-6b69bdca17bb.sql
--- ------------------------------------------------------------------------
-
-CREATE TABLE public.security_scans (
+CREATE TABLE IF NOT EXISTS public.security_scans (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   scan_date timestamptz NOT NULL DEFAULT now(),
   critical_count integer NOT NULL DEFAULT 0,
@@ -7514,7 +7223,7 @@ CREATE TABLE public.security_scans (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_security_scans_scan_date ON public.security_scans (scan_date DESC);
+CREATE INDEX IF NOT EXISTS idx_security_scans_scan_date ON public.security_scans (scan_date DESC);
 
 ALTER TABLE public.security_scans ENABLE ROW LEVEL SECURITY;
 
@@ -7538,10 +7247,7 @@ CREATE POLICY "Admins can delete security scans"
   TO authenticated
   USING (public.is_admin());
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260601105019_1e1326b8-35f1-4293-b3a6-26494554df87.sql
--- ------------------------------------------------------------------------
-
 -- Harden RLS to match security regression tests
 
 -- messages_contact: only admins/secretaires should read (drop overly permissive policies)
@@ -7564,10 +7270,7 @@ FOR SELECT
 TO authenticated
 USING (has_role('administrateur'::text) OR has_role('tresorier'::text));
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260601110754_af502bef-8839-4db2-94c6-011588eb98ec.sql
--- ------------------------------------------------------------------------
-
 
 -- 1. cotisations_mensuelles_exercice: restrict SELECT to own + admin, INSERT/UPDATE to admin only
 DROP POLICY IF EXISTS "Cotisations mensuelles viewable by authenticated users" ON public.cotisations_mensuelles_exercice;
@@ -7660,10 +7363,7 @@ CREATE POLICY "Admins can view user action logs"
   USING (is_admin());
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260601124428_d1006d3d-fc80-4e03-826c-09d569f47c94.sql
--- ------------------------------------------------------------------------
-
 -- =====================================================
 -- PHASE 1 BLOC FINANCES — C13, C8, C11, C12
 -- =====================================================
@@ -7824,7 +7524,7 @@ CREATE TABLE IF NOT EXISTS public.pret_reconduction_validations (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_prv_recon ON public.pret_reconduction_validations(reconduction_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_prv_recon ON public.pret_reconduction_validations(reconduction_id);
 
 GRANT SELECT ON public.pret_reconduction_validations TO authenticated;
 GRANT ALL ON public.pret_reconduction_validations TO service_role;
@@ -8025,10 +7725,7 @@ BEGIN
   RETURN jsonb_build_object('success', true);
 END; $$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260601124722_48c77a8a-0e1a-4843-9832-900f608dea92.sql
--- ------------------------------------------------------------------------
-
 
 -- C13: rendre montant_total dynamique (basé sur la durée réelle de l'exercice)
 
@@ -8086,10 +7783,7 @@ ALTER TABLE public.calendrier_beneficiaires ALTER COLUMN montant_total SET NOT N
 ALTER TABLE public.calendrier_beneficiaires ALTER COLUMN montant_total SET DEFAULT 0;
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260604195614_ef1ae772-7822-4dfe-a0ef-5e04e0ac8183.sql
--- ------------------------------------------------------------------------
-
 
 -- Lot A — Corrections finances V3
 
@@ -8220,10 +7914,7 @@ ON public.reunion_beneficiaires
 FOR EACH ROW EXECUTE FUNCTION public.sync_reunion_beneficiaire_to_caisse();
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260615120155_206e5b1e-f040-4b1b-84bc-ae466dd4c87c.sql
--- ------------------------------------------------------------------------
-
 CREATE OR REPLACE FUNCTION public.cancel_loan_request(_request_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -8269,13 +7960,10 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.cancel_loan_request(uuid) TO authenticated;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260615124246_8e967917-6cda-481d-a12d-719fd9447888.sql
--- ------------------------------------------------------------------------
-
 
 -- 1. Table
-CREATE TABLE public.notifications (
+CREATE TABLE IF NOT EXISTS public.notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   type text NOT NULL,
@@ -8287,15 +7975,15 @@ CREATE TABLE public.notifications (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_notifications_user_unread
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread
   ON public.notifications (user_id, created_at DESC)
   WHERE read_at IS NULL;
 
-CREATE INDEX idx_notifications_user_all
+CREATE INDEX IF NOT EXISTS idx_notifications_user_all
   ON public.notifications (user_id, created_at DESC);
 
 -- Idempotence: éviter doublons pour un même évènement
-CREATE UNIQUE INDEX uniq_notifications_dedupe
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_notifications_dedupe
   ON public.notifications (
     user_id,
     type,
@@ -8374,10 +8062,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.mark_all_notifications_read() TO authenticated;
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260615145321_56c08740-d737-430c-9bfe-45fbe98f51ed.sql
--- ------------------------------------------------------------------------
-
 -- 1) Grants génériques pour toutes les tables publiques
 DO $$
 DECLARE t record;
@@ -8430,10 +8115,7 @@ BEGIN
   END LOOP;
 END$$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260615154701_39282a3a-c5cc-450e-8200-5ba350971e25.sql
--- ------------------------------------------------------------------------
-
 -- Generic GRANTs on all public tables
 DO $$
 DECLARE tbl record;
@@ -8466,10 +8148,7 @@ GRANT INSERT ON public.site_pageviews TO anon;
 -- Sequence usage for all roles
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated, anon, service_role;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260615163407_ce8c2632-997f-480c-a4e2-e3bd0a53ac2d.sql
--- ------------------------------------------------------------------------
-
 CREATE OR REPLACE FUNCTION public.has_permission(_resource text, _permission text)
 RETURNS boolean
 LANGUAGE sql
@@ -8495,10 +8174,7 @@ AS $function$
   )
 $function$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260615170818_d0fc9220-3fdc-4b5e-bf14-f1ebebbbcb6e.sql
--- ------------------------------------------------------------------------
-
 
 -- Élargir les RLS pour permettre aux utilisateurs avec permission cotisations.update
 DROP POLICY IF EXISTS "cme_insert_admin_only" ON public.cotisations_mensuelles_exercice;
@@ -8563,10 +8239,7 @@ GRANT ALL ON public.cotisations_mensuelles_exercice TO service_role;
 GRANT ALL ON public.cotisations_mensuelles_audit TO service_role;
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260615180102_935c29b4-bef2-4b29-a96f-629f85f841a9.sql
--- ------------------------------------------------------------------------
-
 -- Propagation des changements de montant mensuel aux cotisations en_attente
 CREATE OR REPLACE FUNCTION public.propagate_cotisation_mensuelle_to_en_attente()
 RETURNS trigger
@@ -8625,10 +8298,7 @@ AFTER UPDATE OF montant ON public.cotisations_mensuelles_exercice
 FOR EACH ROW
 EXECUTE FUNCTION public.propagate_cotisation_mensuelle_to_en_attente();
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260615185330_fd26580b-8030-4e35-a42a-201b8da66e56.sql
--- ------------------------------------------------------------------------
-
 
 -- 1. Schema changes
 ALTER TABLE public.loan_requests
@@ -8647,7 +8317,7 @@ ALTER TABLE public.loan_requests
   ADD CONSTRAINT loan_requests_statut_check
   CHECK (statut IN ('pending','awaiting_avaliste','in_progress','rejected','rejected_by_avaliste','approved','disbursed','cancelled'));
 
-CREATE INDEX IF NOT EXISTS idx_lr_avaliste ON public.loan_requests(avaliste_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_lr_avaliste ON public.loan_requests(avaliste_id);
 
 -- 2. Helper: can the member self-avaliser ?
 CREATE OR REPLACE FUNCTION public.can_self_avaliser(_membre_id uuid)
@@ -8985,19 +8655,13 @@ $$;
 GRANT EXECUTE ON FUNCTION public.cancel_loan_request(uuid) TO authenticated;
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260615201749_158d78b3-4387-4b7b-8a33-9aa84eee5027.sql
--- ------------------------------------------------------------------------
-
 ALTER TABLE public.loan_request_validations DROP CONSTRAINT IF EXISTS loan_request_validations_statut_check;
 ALTER TABLE public.loan_request_validations
   ADD CONSTRAINT loan_request_validations_statut_check
   CHECK (statut IN ('pending','approved','rejected','cancelled'));
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260617000001_fix_has_role_overload.sql
--- ------------------------------------------------------------------------
-
 -- Fix: Add single-argument overload for has_role() used in RLS policies
 -- The function was defined as has_role(UUID, app_role) but called with has_role('texte')
 CREATE OR REPLACE FUNCTION public.has_role(role_name text)
@@ -9027,10 +8691,7 @@ AS $$
   );
 $$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260617000002_fix_has_permission_function.sql
--- ------------------------------------------------------------------------
-
 -- Fix: Create has_permission() function that was referenced but never defined
 CREATE OR REPLACE FUNCTION public.has_permission(resource_name text, perm text)
 RETURNS boolean
@@ -9048,10 +8709,7 @@ AS $$
   ) OR public.is_admin();
 $$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260617000003_consolidate_triggers.sql
--- ------------------------------------------------------------------------
-
 -- Fix: Remove duplicate sync_sanction_to_caisse trigger
 -- Keep only create_caisse_operation_from_source which handles sanctions correctly
 
@@ -9080,10 +8738,7 @@ BEGIN
 END;
 $$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260617000004_fix_disburse_loan_rate.sql
--- ------------------------------------------------------------------------
-
 -- Fix: disburse_loan() reads taux_interet_defaut from wrong table
 -- It was reading from caisse_config instead of prets_config
 -- This requires recreating the function with correct table reference
@@ -9117,10 +8772,7 @@ BEGIN
 END;
 $$;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260617000005_fix_justificatifs_storage_policy.sql
--- ------------------------------------------------------------------------
-
 -- Fix: Restrict justificatifs bucket to admin only upload
 -- Currently any authenticated user can upload
 
@@ -9155,10 +8807,7 @@ USING (
   )
 );
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260617000006_fix_rls_with_check.sql
--- ------------------------------------------------------------------------
-
 -- Fix: Add WITH CHECK clauses to RLS policies that only have USING
 
 -- Prets reconductions
@@ -9197,10 +8846,7 @@ WITH CHECK (
   EXISTS (SELECT 1 FROM public.user_roles ur JOIN public.roles r ON ur.role_id = r.id WHERE ur.user_id = auth.uid() AND r.name IN ('administrateur', 'tresorier'))
 );
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260625000001_multi_tenant_foundation.sql
--- ------------------------------------------------------------------------
-
 -- ================================================================
 -- MULTI-TENANT FOUNDATION MIGRATION
 -- Date: 2026-06-25
@@ -9472,29 +9118,29 @@ CREATE POLICY "mt_associations_delete"
 -- ============================================================
 -- 7. INDEXES ON association_id FOR ALL TABLES
 -- ============================================================
-CREATE INDEX IF NOT EXISTS idx_membres_association_id ON public.membres(association_id);
-CREATE INDEX IF NOT EXISTS idx_profiles_association_id ON public.profiles(association_id);
-CREATE INDEX IF NOT EXISTS idx_cotisations_association_id ON public.cotisations(association_id);
-CREATE INDEX IF NOT EXISTS idx_epargnes_association_id ON public.epargnes(association_id);
-CREATE INDEX IF NOT EXISTS idx_prets_association_id ON public.prets(association_id);
-CREATE INDEX IF NOT EXISTS idx_prets_reconductions_association_id ON public.prets_reconductions(association_id);
-CREATE INDEX IF NOT EXISTS idx_calendrier_beneficiaires_association_id ON public.calendrier_beneficiaires(association_id);
-CREATE INDEX IF NOT EXISTS idx_reunion_beneficiaires_association_id ON public.reunion_beneficiaires(association_id);
-CREATE INDEX IF NOT EXISTS idx_beneficiaires_paiements_audit_association_id ON public.beneficiaires_paiements_audit(association_id);
-CREATE INDEX IF NOT EXISTS idx_exercices_association_id ON public.exercices(association_id);
-CREATE INDEX IF NOT EXISTS idx_cotisations_mensuelles_exercice_association_id ON public.cotisations_mensuelles_exercice(association_id);
-CREATE INDEX IF NOT EXISTS idx_reunions_association_id ON public.reunions(association_id);
-CREATE INDEX IF NOT EXISTS idx_reunions_sanctions_association_id ON public.reunions_sanctions(association_id);
-CREATE INDEX IF NOT EXISTS idx_reunions_presences_association_id ON public.reunions_presences(association_id);
-CREATE INDEX IF NOT EXISTS idx_fond_caisse_operations_association_id ON public.fond_caisse_operations(association_id);
-CREATE INDEX IF NOT EXISTS idx_sanctions_association_id ON public.sanctions(association_id);
-CREATE INDEX IF NOT EXISTS idx_aides_association_id ON public.aides(association_id);
-CREATE INDEX IF NOT EXISTS idx_aides_types_association_id ON public.aides_types(association_id);
-CREATE INDEX IF NOT EXISTS idx_roles_association_id ON public.roles(association_id);
-CREATE INDEX IF NOT EXISTS idx_role_permissions_association_id ON public.role_permissions(association_id);
-CREATE INDEX IF NOT EXISTS idx_user_roles_association_id ON public.user_roles(association_id);
-CREATE INDEX IF NOT EXISTS idx_adhesions_association_id ON public.adhesions(association_id);
-CREATE INDEX IF NOT EXISTS idx_donations_association_id ON public.donations(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_membres_association_id ON public.membres(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_profiles_association_id ON public.profiles(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_cotisations_association_id ON public.cotisations(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_epargnes_association_id ON public.epargnes(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_prets_association_id ON public.prets(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_prets_reconductions_association_id ON public.prets_reconductions(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_calendrier_beneficiaires_association_id ON public.calendrier_beneficiaires(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunion_beneficiaires_association_id ON public.reunion_beneficiaires(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_beneficiaires_paiements_audit_association_id ON public.beneficiaires_paiements_audit(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_exercices_association_id ON public.exercices(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_cotisations_mensuelles_exercice_association_id ON public.cotisations_mensuelles_exercice(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunions_association_id ON public.reunions(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunions_sanctions_association_id ON public.reunions_sanctions(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunions_presences_association_id ON public.reunions_presences(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_fond_caisse_operations_association_id ON public.fond_caisse_operations(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_sanctions_association_id ON public.sanctions(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_association_id ON public.aides(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_types_association_id ON public.aides_types(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_roles_association_id ON public.roles(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_role_permissions_association_id ON public.role_permissions(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_user_roles_association_id ON public.user_roles(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_adhesions_association_id ON public.adhesions(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_donations_association_id ON public.donations(association_id);
 
 -- ============================================================
 -- 8. GRANT PERMISSIONS
@@ -9502,10 +9148,7 @@ CREATE INDEX IF NOT EXISTS idx_donations_association_id ON public.donations(asso
 GRANT ALL ON public.associations TO authenticated;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260625000002_rpc_multi_tenant_fixes.sql
--- ------------------------------------------------------------------------
-
 -- ================================================================
 -- RPC MULTI-TENANT FIXES
 -- Date: 2026-06-25
@@ -9959,10 +9602,7 @@ GRANT EXECUTE ON FUNCTION public.assigner_beneficiaire_with_audit(UUID, UUID, IN
 GRANT EXECUTE ON FUNCTION public.calculer_montant_beneficiaire(UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.can_manage_beneficiaires() TO authenticated;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260625000003_security_grants_fixes.sql
--- ------------------------------------------------------------------------
-
 -- ================================================================
 -- SECURITY & GRANTS FIXES
 -- Date: 2026-06-25
@@ -10273,10 +9913,7 @@ GRANT EXECUTE ON FUNCTION public.has_role(UUID, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.has_role(UUID, text, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.has_permission(text, text) TO authenticated;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260627_po_priorities_fixes.sql
--- ------------------------------------------------------------------------
-
 -- ================================================================
 -- PRET ORDER PRIORITIES FIXES
 -- Date: 2026-06-27
@@ -10323,13 +9960,13 @@ COMMENT ON COLUMN public.loan_requests.priorite IS
 -- 3. CREATE COMPOSITE INDEX ON prets(association_id, statut, priorite)
 --    for efficient ordered queries
 -- ============================================================
-CREATE INDEX IF NOT EXISTS idx_prets_assoc_statut_priorite
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_prets_assoc_statut_priorite
   ON public.prets(association_id, statut, priorite DESC, created_at ASC);
 
-CREATE INDEX IF NOT EXISTS idx_loan_requests_priorite
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_loan_requests_priorite
   ON public.loan_requests(priorite DESC, created_at ASC);
 
-CREATE INDEX IF NOT EXISTS idx_loan_requests_statut_priorite
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_loan_requests_statut_priorite
   ON public.loan_requests(statut, priorite DESC, created_at ASC)
   WHERE statut IN ('pending', 'in_progress');
 
@@ -10702,10 +10339,7 @@ COMMENT ON FUNCTION public.create_loan_request IS
   'Crée une demande de prêt avec priorité automatique selon l''urgence (urgent=10, normal=0)';
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260701_aides_phase1_foundation.sql
--- ------------------------------------------------------------------------
-
 -- ================================================================
 -- AIDES MODULE — PHASE 1: FOUNDATION
 -- Date: 2026-07-01
@@ -10736,9 +10370,9 @@ COMMENT ON COLUMN public.aides_types.mode_repartition IS
 COMMENT ON COLUMN public.aides_types.montant_defaut IS
   'Montant par défaut proposé quand une aide de ce type est créée';
 
-CREATE INDEX IF NOT EXISTS idx_aides_types_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_types_association_id
   ON public.aides_types(association_id);
-CREATE INDEX IF NOT EXISTS idx_aides_types_nom
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_types_nom
   ON public.aides_types(association_id, nom);
 
 -- ============================================================
@@ -10774,15 +10408,15 @@ COMMENT ON COLUMN public.aides.statut IS
 COMMENT ON COLUMN public.aides.justificatif_url IS
   'URL du justificatif stocké (reçu, facture, certificat médical, etc.)';
 
-CREATE INDEX IF NOT EXISTS idx_aides_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_association_id
   ON public.aides(association_id);
-CREATE INDEX IF NOT EXISTS idx_aides_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_statut
   ON public.aides(association_id, statut);
-CREATE INDEX IF NOT EXISTS idx_aides_beneficiaire
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_beneficiaire
   ON public.aides(beneficiaire_id);
-CREATE INDEX IF NOT EXISTS idx_aides_type
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_type
   ON public.aides(type_aide_id);
-CREATE INDEX IF NOT EXISTS idx_aides_created_by
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_created_by
   ON public.aides(created_by);
 
 -- ============================================================
@@ -10803,11 +10437,11 @@ COMMENT ON TABLE public.aide_validations IS
 COMMENT ON COLUMN public.aide_validations.statut IS
   'pending, approuve, refuse';
 
-CREATE INDEX IF NOT EXISTS idx_aide_validations_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_validations_association_id
   ON public.aide_validations(association_id);
-CREATE INDEX IF NOT EXISTS idx_aide_validations_aide_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_validations_aide_id
   ON public.aide_validations(aide_id);
-CREATE INDEX IF NOT EXISTS idx_aide_validations_validateur
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_validations_validateur
   ON public.aide_validations(validateur_id);
 
 -- ============================================================
@@ -10834,11 +10468,11 @@ COMMENT ON COLUMN public.aide_appels_de_fonds.statut IS
 COMMENT ON COLUMN public.aide_appels_de_fonds.reference IS
   'Référence unique de l''appel de fonds (ex: ADF-2026-001)';
 
-CREATE INDEX IF NOT EXISTS idx_aide_appels_de_fonds_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_appels_de_fonds_association_id
   ON public.aide_appels_de_fonds(association_id);
-CREATE INDEX IF NOT EXISTS idx_aide_appels_de_fonds_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_appels_de_fonds_statut
   ON public.aide_appels_de_fonds(association_id, statut);
-CREATE INDEX IF NOT EXISTS idx_aide_appels_de_fonds_reference
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_appels_de_fonds_reference
   ON public.aide_appels_de_fonds(reference);
 
 -- ============================================================
@@ -10860,7 +10494,7 @@ COMMENT ON TABLE public.aide_montant_default IS
 COMMENT ON COLUMN public.aide_montant_default.plafond IS
   'Montant maximum autorisé pour ce type d''aide dans cette association';
 
-CREATE INDEX IF NOT EXISTS idx_aide_montant_default_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_montant_default_association_id
   ON public.aide_montant_default(association_id);
 
 -- ============================================================
@@ -11001,10 +10635,7 @@ WHERE NOT EXISTS (
 );
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260702_aides_phase2_workflow_core.sql
--- ------------------------------------------------------------------------
-
 -- ================================================================
 -- AIDES MODULE — PHASE 2: WORKFLOW & CORE
 -- Date: 2026-07-02
@@ -11035,9 +10666,9 @@ COMMENT ON COLUMN public.aide_workflow_steps.type_validation IS
 COMMENT ON COLUMN public.aide_workflow_steps.delai_jours IS
   'Délai maximum en jours avant expiration de l''étape';
 
-CREATE INDEX IF NOT EXISTS idx_aide_workflow_steps_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_workflow_steps_association_id
   ON public.aide_workflow_steps(association_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_aide_workflow_steps_assoc_ordre
+CREATE UNIQUE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_workflow_steps_assoc_ordre
   ON public.aide_workflow_steps(association_id, ordre);
 
 -- ============================================================
@@ -11059,11 +10690,11 @@ COMMENT ON TABLE public.aide_workflow_validations IS
 COMMENT ON COLUMN public.aide_workflow_validations.statut IS
   'pending, approuve, refuse';
 
-CREATE INDEX IF NOT EXISTS idx_aide_wf_validations_step
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_wf_validations_step
   ON public.aide_workflow_validations(workflow_step_id);
-CREATE INDEX IF NOT EXISTS idx_aide_wf_validations_aide
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_wf_validations_aide
   ON public.aide_workflow_validations(aide_id);
-CREATE INDEX IF NOT EXISTS idx_aide_wf_validations_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_wf_validations_statut
   ON public.aide_workflow_validations(aide_id, statut);
 
 -- ============================================================
@@ -11089,11 +10720,11 @@ COMMENT ON COLUMN public.aide_payment_orders.statut IS
 COMMENT ON COLUMN public.aide_payment_orders.reference IS
   'Référence unique de l''ordre de paiement (ex: OP-2026-001)';
 
-CREATE INDEX IF NOT EXISTS idx_aide_payment_orders_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_orders_association_id
   ON public.aide_payment_orders(association_id);
-CREATE INDEX IF NOT EXISTS idx_aide_payment_orders_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_orders_statut
   ON public.aide_payment_orders(association_id, statut);
-CREATE INDEX IF NOT EXISTS idx_aide_payment_orders_appel
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_orders_appel
   ON public.aide_payment_orders(appel_de_fonds_id);
 
 -- ============================================================
@@ -11115,11 +10746,11 @@ COMMENT ON TABLE public.aide_payment_items IS
 COMMENT ON COLUMN public.aide_payment_items.statut IS
   'en_attente, paye, echoue, annule';
 
-CREATE INDEX IF NOT EXISTS idx_aide_payment_items_order
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_items_order
   ON public.aide_payment_items(payment_order_id);
-CREATE INDEX IF NOT EXISTS idx_aide_payment_items_beneficiaire
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_items_beneficiaire
   ON public.aide_payment_items(beneficiaire_id);
-CREATE INDEX IF NOT EXISTS idx_aide_payment_items_aide
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_items_aide
   ON public.aide_payment_items(aide_id);
 
 -- ============================================================
@@ -11673,10 +11304,7 @@ COMMENT ON FUNCTION public.avancer_workflow_aide(UUID) IS
   'Avance automatiquement le workflow d''aide (étapes auto approuvées, arrêt aux étapes humaines)';
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260703_aides_phase3_ux_reports.sql
--- ------------------------------------------------------------------------
-
 -- ================================================================
 -- AIDES MODULE — PHASE 3: UX & REPORTING
 -- Date: 2026-07-03
@@ -11743,9 +11371,9 @@ COMMENT ON COLUMN public.aide_reports.filtres IS
 COMMENT ON COLUMN public.aide_reports.resultats IS
   'Résultats du rapport au format JSON';
 
-CREATE INDEX IF NOT EXISTS idx_aide_reports_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_reports_association_id
   ON public.aide_reports(association_id);
-CREATE INDEX IF NOT EXISTS idx_aide_reports_type
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_reports_type
   ON public.aide_reports(association_id, type_rapport);
 
 -- ============================================================
@@ -11813,13 +11441,13 @@ GRANT ALL ON public.aide_reports TO authenticated;
 -- ============================================================
 -- 4. PERFORMANCE INDEXES for dashboard queries
 -- ============================================================
-CREATE INDEX IF NOT EXISTS idx_aides_assoc_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_assoc_statut
   ON public.aides(association_id, statut);
-CREATE INDEX IF NOT EXISTS idx_aides_assoc_archive
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_assoc_archive
   ON public.aides(association_id, archivee);
-CREATE INDEX IF NOT EXISTS idx_aides_assoc_date
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_assoc_date
   ON public.aides(association_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_aides_assoc_type_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_assoc_type_statut
   ON public.aides(association_id, type_aide_id, statut);
 
 -- ============================================================
@@ -12306,10 +11934,7 @@ COMMENT ON FUNCTION public.export_aides_csv(UUID, TEXT, TEXT) IS
   'Exporte les aides au format CSV (séparateur point-virgule)';
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260704_calendrier_beneficiaires_phase4_fixes.sql
--- ------------------------------------------------------------------------
-
 -- ================================================================
 -- CALENDRIER BÉNÉFICIAIRES — PHASE 4 FIXES
 -- Date: 2026-07-04
@@ -12392,7 +12017,7 @@ $$;
 ALTER TABLE public.beneficiaires_paiements_audit
   ADD COLUMN IF NOT EXISTS association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL;
 
-CREATE INDEX IF NOT EXISTS idx_bpa_audit_association_id ON public.beneficiaires_paiements_audit(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_bpa_audit_association_id ON public.beneficiaires_paiements_audit(association_id);
 
 -- ============================================================
 -- 5. RECREATE calculer_montant_beneficiaire — DEFINITIVE VERSION
@@ -12617,10 +12242,7 @@ GRANT EXECUTE ON FUNCTION public.can_manage_beneficiaires() TO authenticated;
 GRANT ALL ON public.calendrier_beneficiaires TO service_role;
 GRANT ALL ON public.beneficiaires_paiements_audit TO service_role;
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260720000002_phase1d_session_and_password_hardening.sql
--- ------------------------------------------------------------------------
-
 -- ============================================================
 -- Migration : 20260720000002_phase1d_session_and_password_hardening.sql
 -- Phase 1-d — Correctifs P0 résiduels sécurité (Tasks 10 → 12 du worklog)
@@ -13020,10 +12642,7 @@ CREATE POLICY "audit_logs_insert_admin_only" ON public.audit_logs
 COMMIT;
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260721000001_phase2_multi_tenant_completion.sql
--- ------------------------------------------------------------------------
-
 -- ============================================================
 -- Migration : 20260721000001_phase2_multi_tenant_completion.sql
 -- Phase 2-a — Achèvement du socle multi-tenant (Tasks 3 & 14 du worklog)
@@ -13065,7 +12684,7 @@ COMMIT;
 --
 -- RÈGLES DE CONSTRUCTION :
 --   - Idempotente : `DROP POLICY IF EXISTS` + `CREATE POLICY`, `ADD COLUMN
---     IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, DO blocks avec
+--     IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS IF NOT EXISTS`, DO blocks avec
 --     `IF EXISTS (information_schema.tables)`.
 --   - N'altère aucune migration existante (Supabase best practice : append-only).
 --   - N'altère PAS `20260720000001_phase1_security_fixes.sql` ni
@@ -13661,9 +13280,9 @@ UPDATE public.aide_payment_items api
   WHERE api.payment_order_id = apo.id
     AND api.association_id IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_aide_workflow_validations_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_workflow_validations_association_id
   ON public.aide_workflow_validations(association_id);
-CREATE INDEX IF NOT EXISTS idx_aide_payment_items_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_items_association_id
   ON public.aide_payment_items(association_id);
 
 
@@ -13748,7 +13367,7 @@ $$;
 -- Pour chaque table tenant-scopée sans `association_id` :
 --   1. ADD COLUMN IF NOT EXISTS association_id UUID (FK ON DELETE SET NULL)
 --   2. Backfill des lignes existantes avec l'association par défaut
---   3. CREATE INDEX IF NOT EXISTS
+--   3. CREATE INDEX IF NOT EXISTS IF NOT EXISTS
 --   4. ENABLE ROW LEVEL SECURITY (si pas déjà fait)
 --
 -- Le DO block vérifie `IF EXISTS (information_schema.tables)` pour
@@ -13852,7 +13471,7 @@ BEGIN
 
     -- 3. Index
     EXECUTE format(
-      'CREATE INDEX IF NOT EXISTS idx_%s_association_id ON public.%I(association_id)',
+      'CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_%s_association_id ON public.%I(association_id)',
       tbl, tbl
     );
 
@@ -14717,10 +14336,7 @@ $$;
 COMMIT;
 
 
--- ------------------------------------------------------------------------
 -- MIGRATION: 20260722000001_remediation_audit_p0_p1.sql
--- ------------------------------------------------------------------------
-
 -- =============================================================================
 -- E2D Connect Gateway — REMEDIATION AUDIT (Phases 1, 2, 5)
 -- =============================================================================
@@ -15087,7 +14703,7 @@ CREATE TABLE IF NOT EXISTS public.contact_rate_limits (
   ip_address TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_contact_rate_limits_ip ON public.contact_rate_limits (ip_address, created_at);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_contact_rate_limits_ip ON public.contact_rate_limits (ip_address, created_at);
 ALTER TABLE public.contact_rate_limits ENABLE ROW LEVEL SECURITY;
 -- Service role bypasses RLS; no policy for authenticated/anon => effectively
 -- only the edge function (service role) can read/write.
@@ -15105,20 +14721,20 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 9. Indexes on association_id + membre_id + statut (Audit Fix #19 / P1)
 -- ---------------------------------------------------------------------------
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_membres_assoc ON public.membres (association_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_profiles_assoc ON public.profiles (association_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cotisations_assoc_membre ON public.cotisations (association_id, membre_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_epargnes_assoc_membre ON public.epargnes (association_id, membre_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_prets_assoc_membre ON public.prets (association_id, membre_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_aides_assoc_membre ON public.aides (association_id, membre_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_aides_statut ON public.aides (statut);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_donations_assoc ON public.donations (association_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_adhesions_assoc ON public.adhesions (association_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_reunions_assoc ON public.reunions (association_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_loan_requests_assoc_statut ON public.loan_requests (association_id, statut);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_notifications_assoc_user ON public.notifications (association_id, user_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_created ON public.audit_logs (created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cotisations_mensuelles_audit ON public.cotisations_mensuelles_audit (membre_id, exercice_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_membres_assoc ON public.membres (association_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_profiles_assoc ON public.profiles (association_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_cotisations_assoc_membre ON public.cotisations (association_id, membre_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_epargnes_assoc_membre ON public.epargnes (association_id, membre_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_prets_assoc_membre ON public.prets (association_id, membre_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_aides_assoc_membre ON public.aides (association_id, membre_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_aides_statut ON public.aides (statut);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_donations_assoc ON public.donations (association_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_adhesions_assoc ON public.adhesions (association_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_reunions_assoc ON public.reunions (association_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_loan_requests_assoc_statut ON public.loan_requests (association_id, statut);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_notifications_assoc_user ON public.notifications (association_id, user_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_audit_logs_created ON public.audit_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_cotisations_mensuelles_audit ON public.cotisations_mensuelles_audit (membre_id, exercice_id);
 
 -- ---------------------------------------------------------------------------
 -- 10. Health-check table (Audit Fix #47 / P2)
@@ -15131,7 +14747,7 @@ CREATE TABLE IF NOT EXISTS public.health_checks (
   message TEXT,
   checked_at TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_health_checks_component ON public.health_checks (component, checked_at DESC);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_health_checks_component ON public.health_checks (component, checked_at DESC);
 
 -- ---------------------------------------------------------------------------
 -- 11. Trigger: invalidate sessions on user desactivation (re-add hardened)

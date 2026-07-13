@@ -80,7 +80,7 @@ $$;
 ALTER TABLE public.beneficiaires_paiements_audit
   ADD COLUMN IF NOT EXISTS association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL;
 
-CREATE INDEX IF NOT EXISTS idx_bpa_audit_association_id ON public.beneficiaires_paiements_audit(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_bpa_audit_association_id ON public.beneficiaires_paiements_audit(association_id);
 
 -- ============================================================
 -- 5. RECREATE calculer_montant_beneficiaire — DEFINITIVE VERSION

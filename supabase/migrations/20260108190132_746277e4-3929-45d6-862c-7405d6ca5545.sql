@@ -2,7 +2,7 @@
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email TEXT;
 
 -- Créer un index unique sur email (permettant les null)
-CREATE UNIQUE INDEX IF NOT EXISTS profiles_email_unique_idx ON public.profiles(email) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS IF NOT EXISTS profiles_email_unique_idx ON public.profiles(email) WHERE email IS NOT NULL;
 
 -- Mettre à jour le trigger handle_new_user pour inclure l'email
 CREATE OR REPLACE FUNCTION public.handle_new_user()

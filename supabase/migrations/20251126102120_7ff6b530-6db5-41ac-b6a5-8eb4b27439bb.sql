@@ -50,10 +50,10 @@ CREATE POLICY "Admins gèrent sanctions"
   WITH CHECK (has_role('administrateur') OR has_role('secretaire_general'));
 
 -- Index pour les performances
-CREATE INDEX idx_reunions_presences_reunion ON public.reunions_presences(reunion_id);
-CREATE INDEX idx_reunions_presences_membre ON public.reunions_presences(membre_id);
-CREATE INDEX idx_reunions_sanctions_reunion ON public.reunions_sanctions(reunion_id);
-CREATE INDEX idx_reunions_sanctions_membre ON public.reunions_sanctions(membre_id);
+CREATE INDEX IF NOT EXISTS idx_reunions_presences_reunion ON public.reunions_presences(reunion_id);
+CREATE INDEX IF NOT EXISTS idx_reunions_presences_membre ON public.reunions_presences(membre_id);
+CREATE INDEX IF NOT EXISTS idx_reunions_sanctions_reunion ON public.reunions_sanctions(reunion_id);
+CREATE INDEX IF NOT EXISTS idx_reunions_sanctions_membre ON public.reunions_sanctions(membre_id);
 
 -- Fonction pour mettre à jour le timestamp
 CREATE OR REPLACE FUNCTION update_reunions_presences_updated_at()

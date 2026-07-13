@@ -44,13 +44,13 @@ COMMENT ON COLUMN public.loan_requests.priorite IS
 -- 3. CREATE COMPOSITE INDEX ON prets(association_id, statut, priorite)
 --    for efficient ordered queries
 -- ============================================================
-CREATE INDEX IF NOT EXISTS idx_prets_assoc_statut_priorite
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_prets_assoc_statut_priorite
   ON public.prets(association_id, statut, priorite DESC, created_at ASC);
 
-CREATE INDEX IF NOT EXISTS idx_loan_requests_priorite
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_loan_requests_priorite
   ON public.loan_requests(priorite DESC, created_at ASC);
 
-CREATE INDEX IF NOT EXISTS idx_loan_requests_statut_priorite
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_loan_requests_statut_priorite
   ON public.loan_requests(statut, priorite DESC, created_at ASC)
   WHERE statut IN ('pending', 'in_progress');
 

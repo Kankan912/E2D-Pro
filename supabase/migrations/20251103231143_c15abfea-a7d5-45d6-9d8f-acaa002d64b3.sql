@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS public.site_hero_images (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_hero_images_hero_id ON public.site_hero_images(hero_id);
-CREATE INDEX idx_hero_images_ordre ON public.site_hero_images(ordre);
+CREATE INDEX IF NOT EXISTS idx_hero_images_hero_id ON public.site_hero_images(hero_id);
+CREATE INDEX IF NOT EXISTS idx_hero_images_ordre ON public.site_hero_images(ordre);
 
 -- RLS pour site_hero_images
 ALTER TABLE public.site_hero_images ENABLE ROW LEVEL SECURITY;
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS public.site_gallery_albums (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_gallery_albums_ordre ON public.site_gallery_albums(ordre);
+CREATE INDEX IF NOT EXISTS idx_gallery_albums_ordre ON public.site_gallery_albums(ordre);
 
 -- RLS pour site_gallery_albums
 ALTER TABLE public.site_gallery_albums ENABLE ROW LEVEL SECURITY;
@@ -86,7 +86,7 @@ CREATE TRIGGER update_gallery_albums_updated_at
 ALTER TABLE public.site_gallery 
 ADD COLUMN IF NOT EXISTS album_id UUID REFERENCES public.site_gallery_albums(id) ON DELETE SET NULL;
 
-CREATE INDEX idx_gallery_album_id ON public.site_gallery(album_id);
+CREATE INDEX IF NOT EXISTS idx_gallery_album_id ON public.site_gallery(album_id);
 
 -- 4. EVENTS CAROUSEL CONFIG: Configuration du carousel événements
 CREATE TABLE IF NOT EXISTS public.site_events_carousel_config (

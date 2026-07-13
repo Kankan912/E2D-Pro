@@ -100,5 +100,5 @@ VALUES
 ON CONFLICT (code) DO NOTHING;
 
 -- 5. Ajouter index pour performance
-CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);

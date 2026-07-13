@@ -1,5 +1,5 @@
 -- Table de configuration des sessions par type de rôle
-CREATE TABLE public.session_config (
+CREATE TABLE IF NOT EXISTS public.session_config (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   role_type TEXT NOT NULL UNIQUE,
   session_duration_minutes INTEGER NOT NULL,

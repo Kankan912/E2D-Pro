@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS public.calendrier_beneficiaires (
   CONSTRAINT unique_membre_par_exercice UNIQUE (exercice_id, membre_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_calendrier_beneficiaires_exercice ON public.calendrier_beneficiaires(exercice_id);
-CREATE INDEX IF NOT EXISTS idx_calendrier_beneficiaires_membre ON public.calendrier_beneficiaires(membre_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_calendrier_beneficiaires_exercice ON public.calendrier_beneficiaires(exercice_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_calendrier_beneficiaires_membre ON public.calendrier_beneficiaires(membre_id);
 
 CREATE TRIGGER update_calendrier_beneficiaires_updated_at
 BEFORE UPDATE ON public.calendrier_beneficiaires
@@ -57,9 +57,9 @@ CREATE TABLE IF NOT EXISTS public.beneficiaires_paiements_audit (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_beneficiaires_audit_membre ON public.beneficiaires_paiements_audit(membre_id);
-CREATE INDEX IF NOT EXISTS idx_beneficiaires_audit_reunion ON public.beneficiaires_paiements_audit(reunion_id);
-CREATE INDEX IF NOT EXISTS idx_beneficiaires_audit_date ON public.beneficiaires_paiements_audit(created_at DESC);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_beneficiaires_audit_membre ON public.beneficiaires_paiements_audit(membre_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_beneficiaires_audit_reunion ON public.beneficiaires_paiements_audit(reunion_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_beneficiaires_audit_date ON public.beneficiaires_paiements_audit(created_at DESC);
 
 -- 4. FONCTION POUR CALCULER LE MONTANT À PAYER
 CREATE OR REPLACE FUNCTION public.calculer_montant_beneficiaire(

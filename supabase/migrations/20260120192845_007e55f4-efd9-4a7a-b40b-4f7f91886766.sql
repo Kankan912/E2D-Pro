@@ -8,8 +8,8 @@ ADD COLUMN IF NOT EXISTS match_type VARCHAR(50),
 ADD COLUMN IF NOT EXISTS auto_sync BOOLEAN DEFAULT false;
 
 -- 2. Index pour performances
-CREATE INDEX IF NOT EXISTS idx_site_events_match_id ON public.site_events(match_id);
-CREATE INDEX IF NOT EXISTS idx_site_events_auto_sync ON public.site_events(auto_sync) WHERE auto_sync = true;
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_site_events_match_id ON public.site_events(match_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_site_events_auto_sync ON public.site_events(auto_sync) WHERE auto_sync = true;
 
 -- 3. Créer la table notifications_logs pour le suivi des envois
 CREATE TABLE IF NOT EXISTS public.notifications_logs (
@@ -27,10 +27,10 @@ CREATE TABLE IF NOT EXISTS public.notifications_logs (
 );
 
 -- Index pour les logs
-CREATE INDEX IF NOT EXISTS idx_notifications_logs_statut ON public.notifications_logs(statut);
-CREATE INDEX IF NOT EXISTS idx_notifications_logs_destinataire ON public.notifications_logs(destinataire_email);
-CREATE INDEX IF NOT EXISTS idx_notifications_logs_campagne ON public.notifications_logs(campagne_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_logs_created ON public.notifications_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_notifications_logs_statut ON public.notifications_logs(statut);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_notifications_logs_destinataire ON public.notifications_logs(destinataire_email);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_notifications_logs_campagne ON public.notifications_logs(campagne_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_notifications_logs_created ON public.notifications_logs(created_at DESC);
 
 -- RLS pour notifications_logs
 ALTER TABLE public.notifications_logs ENABLE ROW LEVEL SECURITY;

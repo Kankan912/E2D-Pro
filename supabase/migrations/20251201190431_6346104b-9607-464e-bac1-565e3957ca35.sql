@@ -30,5 +30,5 @@ ALTER TABLE reunions
 ADD COLUMN IF NOT EXISTS seuil_rappel_presence INTEGER DEFAULT 70;
 
 -- 7. Créer un index pour améliorer les performances des requêtes
-CREATE INDEX IF NOT EXISTS idx_reunions_presences_statut ON reunions_presences(statut_presence);
-CREATE INDEX IF NOT EXISTS idx_reunions_presences_reunion_membre ON reunions_presences(reunion_id, membre_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunions_presences_statut ON reunions_presences(statut_presence);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunions_presences_reunion_membre ON reunions_presences(reunion_id, membre_id);

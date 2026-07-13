@@ -1,6 +1,6 @@
 
 -- 1. Table
-CREATE TABLE public.notifications (
+CREATE TABLE IF NOT EXISTS public.notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   type text NOT NULL,
@@ -12,15 +12,15 @@ CREATE TABLE public.notifications (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_notifications_user_unread
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread
   ON public.notifications (user_id, created_at DESC)
   WHERE read_at IS NULL;
 
-CREATE INDEX idx_notifications_user_all
+CREATE INDEX IF NOT EXISTS idx_notifications_user_all
   ON public.notifications (user_id, created_at DESC);
 
 -- Idempotence: éviter doublons pour un même évènement
-CREATE UNIQUE INDEX uniq_notifications_dedupe
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_notifications_dedupe
   ON public.notifications (
     user_id,
     type,

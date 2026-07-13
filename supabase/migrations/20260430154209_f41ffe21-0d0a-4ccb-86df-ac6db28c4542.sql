@@ -1,6 +1,6 @@
 
 -- Empêche qu'un même user_id soit lié à plusieurs membres
-CREATE UNIQUE INDEX IF NOT EXISTS idx_membres_user_id_unique
+CREATE UNIQUE INDEX IF NOT EXISTS IF NOT EXISTS idx_membres_user_id_unique
   ON public.membres(user_id)
   WHERE user_id IS NOT NULL;
 

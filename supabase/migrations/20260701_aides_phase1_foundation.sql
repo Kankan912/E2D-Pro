@@ -28,9 +28,9 @@ COMMENT ON COLUMN public.aides_types.mode_repartition IS
 COMMENT ON COLUMN public.aides_types.montant_defaut IS
   'Montant par défaut proposé quand une aide de ce type est créée';
 
-CREATE INDEX IF NOT EXISTS idx_aides_types_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_types_association_id
   ON public.aides_types(association_id);
-CREATE INDEX IF NOT EXISTS idx_aides_types_nom
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_types_nom
   ON public.aides_types(association_id, nom);
 
 -- ============================================================
@@ -66,15 +66,15 @@ COMMENT ON COLUMN public.aides.statut IS
 COMMENT ON COLUMN public.aides.justificatif_url IS
   'URL du justificatif stocké (reçu, facture, certificat médical, etc.)';
 
-CREATE INDEX IF NOT EXISTS idx_aides_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_association_id
   ON public.aides(association_id);
-CREATE INDEX IF NOT EXISTS idx_aides_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_statut
   ON public.aides(association_id, statut);
-CREATE INDEX IF NOT EXISTS idx_aides_beneficiaire
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_beneficiaire
   ON public.aides(beneficiaire_id);
-CREATE INDEX IF NOT EXISTS idx_aides_type
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_type
   ON public.aides(type_aide_id);
-CREATE INDEX IF NOT EXISTS idx_aides_created_by
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_created_by
   ON public.aides(created_by);
 
 -- ============================================================
@@ -95,11 +95,11 @@ COMMENT ON TABLE public.aide_validations IS
 COMMENT ON COLUMN public.aide_validations.statut IS
   'pending, approuve, refuse';
 
-CREATE INDEX IF NOT EXISTS idx_aide_validations_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_validations_association_id
   ON public.aide_validations(association_id);
-CREATE INDEX IF NOT EXISTS idx_aide_validations_aide_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_validations_aide_id
   ON public.aide_validations(aide_id);
-CREATE INDEX IF NOT EXISTS idx_aide_validations_validateur
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_validations_validateur
   ON public.aide_validations(validateur_id);
 
 -- ============================================================
@@ -126,11 +126,11 @@ COMMENT ON COLUMN public.aide_appels_de_fonds.statut IS
 COMMENT ON COLUMN public.aide_appels_de_fonds.reference IS
   'Référence unique de l''appel de fonds (ex: ADF-2026-001)';
 
-CREATE INDEX IF NOT EXISTS idx_aide_appels_de_fonds_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_appels_de_fonds_association_id
   ON public.aide_appels_de_fonds(association_id);
-CREATE INDEX IF NOT EXISTS idx_aide_appels_de_fonds_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_appels_de_fonds_statut
   ON public.aide_appels_de_fonds(association_id, statut);
-CREATE INDEX IF NOT EXISTS idx_aide_appels_de_fonds_reference
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_appels_de_fonds_reference
   ON public.aide_appels_de_fonds(reference);
 
 -- ============================================================
@@ -152,7 +152,7 @@ COMMENT ON TABLE public.aide_montant_default IS
 COMMENT ON COLUMN public.aide_montant_default.plafond IS
   'Montant maximum autorisé pour ce type d''aide dans cette association';
 
-CREATE INDEX IF NOT EXISTS idx_aide_montant_default_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_montant_default_association_id
   ON public.aide_montant_default(association_id);
 
 -- ============================================================

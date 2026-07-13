@@ -33,9 +33,9 @@ SELECT 50000, 20000, 80
 WHERE NOT EXISTS (SELECT 1 FROM public.caisse_config);
 
 -- 6. Créer un index pour les recherches par catégorie et date
-CREATE INDEX IF NOT EXISTS idx_fond_caisse_operations_categorie ON public.fond_caisse_operations(categorie);
-CREATE INDEX IF NOT EXISTS idx_fond_caisse_operations_date ON public.fond_caisse_operations(date_operation);
-CREATE INDEX IF NOT EXISTS idx_fond_caisse_operations_source ON public.fond_caisse_operations(source_table, source_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_fond_caisse_operations_categorie ON public.fond_caisse_operations(categorie);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_fond_caisse_operations_date ON public.fond_caisse_operations(date_operation);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_fond_caisse_operations_source ON public.fond_caisse_operations(source_table, source_id);
 
 -- 7. Trigger pour updated_at sur caisse_config
 CREATE TRIGGER update_caisse_config_updated_at

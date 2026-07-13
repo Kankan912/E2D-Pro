@@ -64,9 +64,9 @@ COMMENT ON COLUMN public.aide_reports.filtres IS
 COMMENT ON COLUMN public.aide_reports.resultats IS
   'Résultats du rapport au format JSON';
 
-CREATE INDEX IF NOT EXISTS idx_aide_reports_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_reports_association_id
   ON public.aide_reports(association_id);
-CREATE INDEX IF NOT EXISTS idx_aide_reports_type
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_reports_type
   ON public.aide_reports(association_id, type_rapport);
 
 -- ============================================================
@@ -134,13 +134,13 @@ GRANT ALL ON public.aide_reports TO authenticated;
 -- ============================================================
 -- 4. PERFORMANCE INDEXES for dashboard queries
 -- ============================================================
-CREATE INDEX IF NOT EXISTS idx_aides_assoc_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_assoc_statut
   ON public.aides(association_id, statut);
-CREATE INDEX IF NOT EXISTS idx_aides_assoc_archive
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_assoc_archive
   ON public.aides(association_id, archivee);
-CREATE INDEX IF NOT EXISTS idx_aides_assoc_date
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_assoc_date
   ON public.aides(association_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_aides_assoc_type_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_assoc_type_statut
   ON public.aides(association_id, type_aide_id, statut);
 
 -- ============================================================

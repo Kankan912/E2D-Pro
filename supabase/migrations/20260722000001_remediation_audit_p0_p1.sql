@@ -364,7 +364,7 @@ CREATE TABLE IF NOT EXISTS public.contact_rate_limits (
   ip_address TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_contact_rate_limits_ip ON public.contact_rate_limits (ip_address, created_at);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_contact_rate_limits_ip ON public.contact_rate_limits (ip_address, created_at);
 ALTER TABLE public.contact_rate_limits ENABLE ROW LEVEL SECURITY;
 -- Service role bypasses RLS; no policy for authenticated/anon => effectively
 -- only the edge function (service role) can read/write.
@@ -382,20 +382,20 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 9. Indexes on association_id + membre_id + statut (Audit Fix #19 / P1)
 -- ---------------------------------------------------------------------------
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_membres_assoc ON public.membres (association_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_profiles_assoc ON public.profiles (association_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cotisations_assoc_membre ON public.cotisations (association_id, membre_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_epargnes_assoc_membre ON public.epargnes (association_id, membre_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_prets_assoc_membre ON public.prets (association_id, membre_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_aides_assoc_membre ON public.aides (association_id, membre_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_aides_statut ON public.aides (statut);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_donations_assoc ON public.donations (association_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_adhesions_assoc ON public.adhesions (association_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_reunions_assoc ON public.reunions (association_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_loan_requests_assoc_statut ON public.loan_requests (association_id, statut);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_notifications_assoc_user ON public.notifications (association_id, user_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_created ON public.audit_logs (created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cotisations_mensuelles_audit ON public.cotisations_mensuelles_audit (membre_id, exercice_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_membres_assoc ON public.membres (association_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_profiles_assoc ON public.profiles (association_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_cotisations_assoc_membre ON public.cotisations (association_id, membre_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_epargnes_assoc_membre ON public.epargnes (association_id, membre_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_prets_assoc_membre ON public.prets (association_id, membre_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_aides_assoc_membre ON public.aides (association_id, membre_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_aides_statut ON public.aides (statut);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_donations_assoc ON public.donations (association_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_adhesions_assoc ON public.adhesions (association_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_reunions_assoc ON public.reunions (association_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_loan_requests_assoc_statut ON public.loan_requests (association_id, statut);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_notifications_assoc_user ON public.notifications (association_id, user_id);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_audit_logs_created ON public.audit_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_cotisations_mensuelles_audit ON public.cotisations_mensuelles_audit (membre_id, exercice_id);
 
 -- ---------------------------------------------------------------------------
 -- 10. Health-check table (Audit Fix #47 / P2)
@@ -408,7 +408,7 @@ CREATE TABLE IF NOT EXISTS public.health_checks (
   message TEXT,
   checked_at TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_health_checks_component ON public.health_checks (component, checked_at DESC);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_health_checks_component ON public.health_checks (component, checked_at DESC);
 
 -- ---------------------------------------------------------------------------
 -- 11. Trigger: invalidate sessions on user desactivation (re-add hardened)

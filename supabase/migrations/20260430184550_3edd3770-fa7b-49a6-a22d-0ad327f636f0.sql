@@ -10,9 +10,9 @@ CREATE TABLE IF NOT EXISTS public.site_pageviews (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_pageviews_created_at ON public.site_pageviews(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_pageviews_path ON public.site_pageviews(path);
-CREATE INDEX IF NOT EXISTS idx_pageviews_user_id ON public.site_pageviews(user_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_pageviews_created_at ON public.site_pageviews(created_at DESC);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_pageviews_path ON public.site_pageviews(path);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_pageviews_user_id ON public.site_pageviews(user_id);
 
 ALTER TABLE public.site_pageviews ENABLE ROW LEVEL SECURITY;
 

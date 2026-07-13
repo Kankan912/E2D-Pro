@@ -1,8 +1,11 @@
--- Création de l'enum pour les rôles
-CREATE TYPE public.app_role AS ENUM ('membre', 'admin', 'tresorier', 'secretaire', 'responsable_sportif');
+-- Création de l'enum pour les rôles (résilient : ne plante pas si déjà créé par SCHEMA_FOUNDATION)
+DO $$ BEGIN
+  CREATE TYPE public.app_role AS ENUM ('membre', 'admin', 'tresorier', 'secretaire', 'responsable_sportif');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- Table des profils utilisateurs (liée à auth.users)
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   nom VARCHAR(100) NOT NULL,
   prenom VARCHAR(100) NOT NULL,
@@ -17,10 +20,11 @@ CREATE TABLE public.profiles (
 );
 
 -- Table des rôles utilisateurs (sécurisée)
-CREATE TABLE public.user_roles (
+-- RESILIENT: ne recrée pas si SCHEMA_FOUNDATION a déjà créé user_roles
+CREATE TABLE IF NOT EXISTS public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  role app_role NOT NULL,
+  role app_role,
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(user_id, role)
 );

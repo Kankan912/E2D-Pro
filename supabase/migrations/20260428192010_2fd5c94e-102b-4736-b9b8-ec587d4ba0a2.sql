@@ -6,7 +6,7 @@ ALTER TABLE public.prets_reconductions
   ADD COLUMN IF NOT EXISTS validee_par uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS validee_le timestamptz;
 
-CREATE INDEX IF NOT EXISTS idx_prets_reconductions_statut
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_prets_reconductions_statut
   ON public.prets_reconductions(statut);
 
 -- Trigger : forcer 'en_attente' si l'auteur n'est ni admin ni trésorier

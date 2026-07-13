@@ -3,9 +3,9 @@ ALTER TABLE match_statistics
 ADD COLUMN IF NOT EXISTS membre_id UUID REFERENCES membres(id) ON DELETE SET NULL;
 
 -- Créer des index pour les performances
-CREATE INDEX IF NOT EXISTS idx_match_statistics_membre ON match_statistics(membre_id);
-CREATE INDEX IF NOT EXISTS idx_match_statistics_match_type ON match_statistics(match_type);
-CREATE INDEX IF NOT EXISTS idx_match_statistics_match_id ON match_statistics(match_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_match_statistics_membre ON match_statistics(membre_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_match_statistics_match_type ON match_statistics(match_type);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_match_statistics_match_id ON match_statistics(match_id);
 
 -- Mettre à jour les enregistrements existants en mappant player_name vers membre_id
 UPDATE match_statistics ms

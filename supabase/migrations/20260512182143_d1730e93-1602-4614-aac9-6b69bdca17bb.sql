@@ -1,4 +1,4 @@
-CREATE TABLE public.security_scans (
+CREATE TABLE IF NOT EXISTS public.security_scans (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   scan_date timestamptz NOT NULL DEFAULT now(),
   critical_count integer NOT NULL DEFAULT 0,
@@ -10,7 +10,7 @@ CREATE TABLE public.security_scans (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_security_scans_scan_date ON public.security_scans (scan_date DESC);
+CREATE INDEX IF NOT EXISTS idx_security_scans_scan_date ON public.security_scans (scan_date DESC);
 
 ALTER TABLE public.security_scans ENABLE ROW LEVEL SECURITY;
 

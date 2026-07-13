@@ -112,7 +112,7 @@ USING (
 );
 
 -- Table pour la section Hero
-CREATE TABLE site_hero (
+CREATE TABLE IF NOT EXISTS site_hero (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   titre TEXT NOT NULL,
   sous_titre TEXT NOT NULL,
@@ -145,7 +145,7 @@ USING (has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
 -- Table pour la section About
-CREATE TABLE site_about (
+CREATE TABLE IF NOT EXISTS site_about (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   titre TEXT NOT NULL DEFAULT 'À Propos de Nous',
   sous_titre TEXT NOT NULL DEFAULT 'Notre Mission',
@@ -169,7 +169,7 @@ USING (has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
 -- Table pour les activités
-CREATE TABLE site_activities (
+CREATE TABLE IF NOT EXISTS site_activities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   titre TEXT NOT NULL,
   description TEXT NOT NULL,
@@ -193,7 +193,7 @@ USING (has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
 -- Table pour les événements
-CREATE TABLE site_events (
+CREATE TABLE IF NOT EXISTS site_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   titre TEXT NOT NULL,
   type TEXT NOT NULL, -- 'Match', 'Tournoi', 'Entraînement', etc.
@@ -220,7 +220,7 @@ USING (has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
 -- Table pour la galerie
-CREATE TABLE site_gallery (
+CREATE TABLE IF NOT EXISTS site_gallery (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   titre TEXT NOT NULL,
   categorie TEXT NOT NULL, -- 'Photo', 'Vidéo'
@@ -244,7 +244,7 @@ USING (has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
 -- Table pour les partenaires
-CREATE TABLE site_partners (
+CREATE TABLE IF NOT EXISTS site_partners (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nom TEXT NOT NULL,
   logo_url TEXT NOT NULL,
@@ -268,7 +268,7 @@ USING (has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
 -- Table pour la configuration générale du site
-CREATE TABLE site_config (
+CREATE TABLE IF NOT EXISTS site_config (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   cle TEXT UNIQUE NOT NULL,
   valeur TEXT NOT NULL,

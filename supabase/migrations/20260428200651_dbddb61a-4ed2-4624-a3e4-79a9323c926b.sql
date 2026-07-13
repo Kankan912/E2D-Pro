@@ -2,7 +2,7 @@
 -- ============================================================================
 -- TABLE 1 : Configuration workflow
 -- ============================================================================
-CREATE TABLE public.loan_validation_config (
+CREATE TABLE IF NOT EXISTS public.loan_validation_config (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   role text NOT NULL UNIQUE,
   label text NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE public.loan_validation_config (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_lvc_ordre ON public.loan_validation_config(ordre) WHERE actif = true;
+CREATE INDEX IF NOT EXISTS idx_lvc_ordre ON public.loan_validation_config(ordre) WHERE actif = true;
 
 CREATE TRIGGER trg_lvc_updated_at
   BEFORE UPDATE ON public.loan_validation_config
@@ -27,7 +27,7 @@ INSERT INTO public.loan_validation_config (role, label, ordre, actif) VALUES
 -- ============================================================================
 -- TABLE 2 : Demandes de prêt
 -- ============================================================================
-CREATE TABLE public.loan_requests (
+CREATE TABLE IF NOT EXISTS public.loan_requests (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   membre_id uuid NOT NULL REFERENCES public.membres(id) ON DELETE RESTRICT,
   montant numeric NOT NULL CHECK (montant > 0),
@@ -46,9 +46,9 @@ CREATE TABLE public.loan_requests (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_lr_membre ON public.loan_requests(membre_id);
-CREATE INDEX idx_lr_statut ON public.loan_requests(statut);
-CREATE INDEX idx_lr_current_step ON public.loan_requests(current_step) WHERE statut = 'in_progress';
+CREATE INDEX IF NOT EXISTS idx_lr_membre ON public.loan_requests(membre_id);
+CREATE INDEX IF NOT EXISTS idx_lr_statut ON public.loan_requests(statut);
+CREATE INDEX IF NOT EXISTS idx_lr_current_step ON public.loan_requests(current_step) WHERE statut = 'in_progress';
 
 CREATE TRIGGER trg_lr_updated_at
   BEFORE UPDATE ON public.loan_requests
@@ -57,7 +57,7 @@ CREATE TRIGGER trg_lr_updated_at
 -- ============================================================================
 -- TABLE 3 : Étapes de validation
 -- ============================================================================
-CREATE TABLE public.loan_request_validations (
+CREATE TABLE IF NOT EXISTS public.loan_request_validations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   loan_request_id uuid NOT NULL REFERENCES public.loan_requests(id) ON DELETE CASCADE,
   role text NOT NULL,
@@ -72,8 +72,8 @@ CREATE TABLE public.loan_request_validations (
   UNIQUE (loan_request_id, ordre)
 );
 
-CREATE INDEX idx_lrv_request ON public.loan_request_validations(loan_request_id);
-CREATE INDEX idx_lrv_pending ON public.loan_request_validations(loan_request_id, ordre)
+CREATE INDEX IF NOT EXISTS idx_lrv_request ON public.loan_request_validations(loan_request_id);
+CREATE INDEX IF NOT EXISTS idx_lrv_pending ON public.loan_request_validations(loan_request_id, ordre)
   WHERE statut = 'pending';
 
 -- ============================================================================

@@ -8,10 +8,10 @@ ALTER TABLE calendrier_beneficiaires
 ADD COLUMN IF NOT EXISTS ordre_mois INTEGER DEFAULT 1;
 
 -- Index pour améliorer les performances
-CREATE INDEX IF NOT EXISTS idx_cotisations_reunion_exercice 
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_cotisations_reunion_exercice 
 ON cotisations(reunion_id, exercice_id);
 
-CREATE INDEX IF NOT EXISTS idx_calendrier_beneficiaires_mois 
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_calendrier_beneficiaires_mois 
 ON calendrier_beneficiaires(exercice_id, mois_benefice);
 
 -- Ajouter les configurations de déclencheurs automatiques si manquantes

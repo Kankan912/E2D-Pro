@@ -16,17 +16,24 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- =============================================================================
--- 1. ROLES (nécessaire pour user_roles)
+-- 1. APP_ROLE ENUM (PostgreSQL ne supporte pas CREATE TYPE IF NOT EXISTS)
 -- =============================================================================
-CREATE TYPE IF NOT EXISTS public.app_role AS ENUM (
-  'membre', 'admin', 'tresorier', 'secretaire', 'responsable_sportif',
-  'super_admin', 'administrateur', 'secretaire_general'
-);
+DO $$ BEGIN
+  CREATE TYPE public.app_role AS ENUM (
+    'membre', 'admin', 'tresorier', 'secretaire', 'responsable_sportif',
+    'super_admin', 'administrateur', 'secretaire_general'
+  );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
+-- =============================================================================
+-- 2. ROLES TABLE (nécessaire pour user_roles avec role_id)
+-- =============================================================================
 CREATE TABLE IF NOT EXISTS public.roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT UNIQUE NOT NULL,
   description TEXT,
+  association_id UUID,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -42,7 +49,7 @@ INSERT INTO public.roles (name, description) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- =============================================================================
--- 2. ROLE_PERMISSIONS
+-- 3. ROLE_PERMISSIONS
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS public.role_permissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -52,6 +59,22 @@ CREATE TABLE IF NOT EXISTS public.role_permissions (
   granted BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(role_id, resource, permission)
+);
+
+-- =============================================================================
+-- 4. USER_ROLES (modèle hybride : role app_role ET role_id UUID)
+--    La colonne role_id est utilisée par les migrations multi-tenant
+--    La colonne role (enum) est utilisée par l'ancien code
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.user_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  role app_role,  -- ancien modèle (enum)
+  role_id UUID REFERENCES public.roles(id) ON DELETE SET NULL,  -- nouveau modèle (FK)
+  association_id UUID,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, role),
+  UNIQUE(user_id, role_id, association_id)
 );
 
 -- =============================================================================

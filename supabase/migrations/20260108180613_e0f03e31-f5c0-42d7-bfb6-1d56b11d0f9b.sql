@@ -1,5 +1,5 @@
 -- Table pour les comptes rendus de matchs E2D
-CREATE TABLE public.match_compte_rendus (
+CREATE TABLE IF NOT EXISTS public.match_compte_rendus (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id UUID NOT NULL REFERENCES public.sport_e2d_matchs(id) ON DELETE CASCADE,
   resume TEXT,
@@ -15,7 +15,7 @@ CREATE TABLE public.match_compte_rendus (
 );
 
 -- Table pour les médias de matchs E2D
-CREATE TABLE public.match_medias (
+CREATE TABLE IF NOT EXISTS public.match_medias (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id UUID NOT NULL REFERENCES public.sport_e2d_matchs(id) ON DELETE CASCADE,
   url TEXT NOT NULL,
@@ -93,6 +93,6 @@ USING (
 );
 
 -- Index pour performances
-CREATE INDEX idx_match_compte_rendus_match_id ON public.match_compte_rendus(match_id);
-CREATE INDEX idx_match_medias_match_id ON public.match_medias(match_id);
-CREATE INDEX idx_match_medias_ordre ON public.match_medias(match_id, ordre);
+CREATE INDEX IF NOT EXISTS idx_match_compte_rendus_match_id ON public.match_compte_rendus(match_id);
+CREATE INDEX IF NOT EXISTS idx_match_medias_match_id ON public.match_medias(match_id);
+CREATE INDEX IF NOT EXISTS idx_match_medias_ordre ON public.match_medias(match_id, ordre);

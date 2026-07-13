@@ -39,7 +39,7 @@
 --
 -- RÈGLES DE CONSTRUCTION :
 --   - Idempotente : `DROP POLICY IF EXISTS` + `CREATE POLICY`, `ADD COLUMN
---     IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, DO blocks avec
+--     IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS IF NOT EXISTS`, DO blocks avec
 --     `IF EXISTS (information_schema.tables)`.
 --   - N'altère aucune migration existante (Supabase best practice : append-only).
 --   - N'altère PAS `20260720000001_phase1_security_fixes.sql` ni
@@ -635,9 +635,9 @@ UPDATE public.aide_payment_items api
   WHERE api.payment_order_id = apo.id
     AND api.association_id IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_aide_workflow_validations_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_workflow_validations_association_id
   ON public.aide_workflow_validations(association_id);
-CREATE INDEX IF NOT EXISTS idx_aide_payment_items_association_id
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aide_payment_items_association_id
   ON public.aide_payment_items(association_id);
 
 
@@ -722,7 +722,7 @@ $$;
 -- Pour chaque table tenant-scopée sans `association_id` :
 --   1. ADD COLUMN IF NOT EXISTS association_id UUID (FK ON DELETE SET NULL)
 --   2. Backfill des lignes existantes avec l'association par défaut
---   3. CREATE INDEX IF NOT EXISTS
+--   3. CREATE INDEX IF NOT EXISTS IF NOT EXISTS
 --   4. ENABLE ROW LEVEL SECURITY (si pas déjà fait)
 --
 -- Le DO block vérifie `IF EXISTS (information_schema.tables)` pour
@@ -826,7 +826,7 @@ BEGIN
 
     -- 3. Index
     EXECUTE format(
-      'CREATE INDEX IF NOT EXISTS idx_%s_association_id ON public.%I(association_id)',
+      'CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_%s_association_id ON public.%I(association_id)',
       tbl, tbl
     );
 

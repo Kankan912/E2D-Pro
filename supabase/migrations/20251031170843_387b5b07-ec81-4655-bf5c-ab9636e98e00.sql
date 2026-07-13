@@ -153,14 +153,14 @@ CREATE POLICY "Admin et Trésorier peuvent mettre à jour adhesions"
   );
 
 -- Indexes pour les recherches
-CREATE INDEX idx_donations_donor_email ON public.donations(donor_email);
-CREATE INDEX idx_donations_payment_status ON public.donations(payment_status);
-CREATE INDEX idx_donations_created_at ON public.donations(created_at DESC);
-CREATE INDEX idx_recurring_donations_status ON public.recurring_donations(status);
-CREATE INDEX idx_recurring_donations_next_payment ON public.recurring_donations(next_payment_date);
-CREATE INDEX idx_adhesions_email ON public.adhesions(email);
-CREATE INDEX idx_adhesions_payment_status ON public.adhesions(payment_status);
-CREATE INDEX idx_adhesions_processed ON public.adhesions(processed);
+CREATE INDEX IF NOT EXISTS idx_donations_donor_email ON public.donations(donor_email);
+CREATE INDEX IF NOT EXISTS idx_donations_payment_status ON public.donations(payment_status);
+CREATE INDEX IF NOT EXISTS idx_donations_created_at ON public.donations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recurring_donations_status ON public.recurring_donations(status);
+CREATE INDEX IF NOT EXISTS idx_recurring_donations_next_payment ON public.recurring_donations(next_payment_date);
+CREATE INDEX IF NOT EXISTS idx_adhesions_email ON public.adhesions(email);
+CREATE INDEX IF NOT EXISTS idx_adhesions_payment_status ON public.adhesions(payment_status);
+CREATE INDEX IF NOT EXISTS idx_adhesions_processed ON public.adhesions(processed);
 
 -- Trigger pour updated_at sur donations
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()

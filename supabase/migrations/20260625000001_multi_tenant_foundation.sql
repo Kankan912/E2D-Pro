@@ -269,29 +269,29 @@ CREATE POLICY "mt_associations_delete"
 -- ============================================================
 -- 7. INDEXES ON association_id FOR ALL TABLES
 -- ============================================================
-CREATE INDEX IF NOT EXISTS idx_membres_association_id ON public.membres(association_id);
-CREATE INDEX IF NOT EXISTS idx_profiles_association_id ON public.profiles(association_id);
-CREATE INDEX IF NOT EXISTS idx_cotisations_association_id ON public.cotisations(association_id);
-CREATE INDEX IF NOT EXISTS idx_epargnes_association_id ON public.epargnes(association_id);
-CREATE INDEX IF NOT EXISTS idx_prets_association_id ON public.prets(association_id);
-CREATE INDEX IF NOT EXISTS idx_prets_reconductions_association_id ON public.prets_reconductions(association_id);
-CREATE INDEX IF NOT EXISTS idx_calendrier_beneficiaires_association_id ON public.calendrier_beneficiaires(association_id);
-CREATE INDEX IF NOT EXISTS idx_reunion_beneficiaires_association_id ON public.reunion_beneficiaires(association_id);
-CREATE INDEX IF NOT EXISTS idx_beneficiaires_paiements_audit_association_id ON public.beneficiaires_paiements_audit(association_id);
-CREATE INDEX IF NOT EXISTS idx_exercices_association_id ON public.exercices(association_id);
-CREATE INDEX IF NOT EXISTS idx_cotisations_mensuelles_exercice_association_id ON public.cotisations_mensuelles_exercice(association_id);
-CREATE INDEX IF NOT EXISTS idx_reunions_association_id ON public.reunions(association_id);
-CREATE INDEX IF NOT EXISTS idx_reunions_sanctions_association_id ON public.reunions_sanctions(association_id);
-CREATE INDEX IF NOT EXISTS idx_reunions_presences_association_id ON public.reunions_presences(association_id);
-CREATE INDEX IF NOT EXISTS idx_fond_caisse_operations_association_id ON public.fond_caisse_operations(association_id);
-CREATE INDEX IF NOT EXISTS idx_sanctions_association_id ON public.sanctions(association_id);
-CREATE INDEX IF NOT EXISTS idx_aides_association_id ON public.aides(association_id);
-CREATE INDEX IF NOT EXISTS idx_aides_types_association_id ON public.aides_types(association_id);
-CREATE INDEX IF NOT EXISTS idx_roles_association_id ON public.roles(association_id);
-CREATE INDEX IF NOT EXISTS idx_role_permissions_association_id ON public.role_permissions(association_id);
-CREATE INDEX IF NOT EXISTS idx_user_roles_association_id ON public.user_roles(association_id);
-CREATE INDEX IF NOT EXISTS idx_adhesions_association_id ON public.adhesions(association_id);
-CREATE INDEX IF NOT EXISTS idx_donations_association_id ON public.donations(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_membres_association_id ON public.membres(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_profiles_association_id ON public.profiles(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_cotisations_association_id ON public.cotisations(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_epargnes_association_id ON public.epargnes(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_prets_association_id ON public.prets(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_prets_reconductions_association_id ON public.prets_reconductions(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_calendrier_beneficiaires_association_id ON public.calendrier_beneficiaires(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunion_beneficiaires_association_id ON public.reunion_beneficiaires(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_beneficiaires_paiements_audit_association_id ON public.beneficiaires_paiements_audit(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_exercices_association_id ON public.exercices(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_cotisations_mensuelles_exercice_association_id ON public.cotisations_mensuelles_exercice(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunions_association_id ON public.reunions(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunions_sanctions_association_id ON public.reunions_sanctions(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_reunions_presences_association_id ON public.reunions_presences(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_fond_caisse_operations_association_id ON public.fond_caisse_operations(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_sanctions_association_id ON public.sanctions(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_association_id ON public.aides(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_aides_types_association_id ON public.aides_types(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_roles_association_id ON public.roles(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_role_permissions_association_id ON public.role_permissions(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_user_roles_association_id ON public.user_roles(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_adhesions_association_id ON public.adhesions(association_id);
+CREATE INDEX IF NOT EXISTS IF NOT EXISTS idx_donations_association_id ON public.donations(association_id);
 
 -- ============================================================
 -- 8. GRANT PERMISSIONS

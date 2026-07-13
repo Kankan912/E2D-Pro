@@ -1,5 +1,5 @@
 -- Table pour l'historique des reconductions de prêts
-CREATE TABLE public.prets_reconductions (
+CREATE TABLE IF NOT EXISTS public.prets_reconductions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   pret_id UUID NOT NULL REFERENCES public.prets(id) ON DELETE CASCADE,
   date_reconduction DATE NOT NULL DEFAULT CURRENT_DATE,

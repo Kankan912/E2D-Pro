@@ -368,6 +368,7 @@ DECLARE
   v_montant_benefice NUMERIC := 0;
   v_config_mensuelle NUMERIC := 0;
   v_nb_mois INT := 12;
+  v_solde_global NUMERIC := 0;
 BEGIN
   -- Déterminer l'exercice
   IF p_exercice_id IS NOT NULL THEN
@@ -425,14 +426,9 @@ BEGIN
   -- Bénéfice prévisionnel = montant mensuel × nb_cotisations × nb_mois (Feature #4)
   v_montant_benefice := v_config_mensuelle * v_nb_cotisations_mensuelles * v_nb_mois;
 
-  -- Solde global = payé - dû + épargne - prêts_restant + aides
+  -- Solde global = payé - dû + épargne - prêts_restant + aides + bénéfice
   -- (le solde représente ce que le membre "possède" dans l'association)
-  DECLARE
-    v_solde NUMERIC;
-  BEGIN
-    v_solde := v_cotisations_payees - v_cotisations_dues + v_epargne_total - v_prets_restant + v_aides_total + v_montant_benefice;
-    v_solde_global := v_solde;
-  END;
+  v_solde_global := v_cotisations_payees - v_cotisations_dues + v_epargne_total - v_prets_restant + v_aides_total + v_montant_benefice;
 
   RETURN NEXT
   p_membre_id,

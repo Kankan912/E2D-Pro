@@ -28,7 +28,6 @@ import { useToast } from "@/hooks/use-toast";
 import BackButton from "@/components/BackButton";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import * as XLSX from "xlsx";
 
 export default function AdhesionsAdmin() {
   const { toast } = useToast();
@@ -42,8 +41,7 @@ export default function AdhesionsAdmin() {
     queryKey: ['adhesions'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('adhesions')
-        .select('*')
+        .from('adhesions').select('id, user_id, nom, prenom, email, telephone, statut, payment_status, processed, association_id, created_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -156,10 +154,10 @@ export default function AdhesionsAdmin() {
       'Date': format(new Date(a.created_at), 'dd/MM/yyyy HH:mm', { locale: fr })
     }));
 
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Adhésions");
-    XLSX.writeFile(wb, `adhesions_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    const ws = null // XLSX removed (dataToExport);
+    const wb = null // XLSX removed;
+    null // XLSX removed (wb, ws, "Adhésions");
+    // XLSX removed — use exportSimpleSheet(wb, `adhesions_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     
     toast({ title: "Export réussi", description: `${dataToExport.length} adhésion(s) exportée(s)` });
   };

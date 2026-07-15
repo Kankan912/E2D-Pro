@@ -433,7 +433,7 @@ export default function AidesAdmin({ associationId }: AidesAdminProps) {
       return;
     }
 
-    const XLSX = await import("xlsx");
+    
     const rows = filteredAides.map((a) => ({
       "Date": new Date(a.date_allocation).toLocaleDateString("fr-FR"),
       "Bénéficiaire": `${a.beneficiaire?.nom || ""} ${a.beneficiaire?.prenom || ""}`,
@@ -446,10 +446,7 @@ export default function AidesAdmin({ associationId }: AidesAdminProps) {
       "Notes": a.notes || "",
     }));
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Aides");
-    XLSX.writeFile(wb, `aides_${new Date().toISOString().split("T")[0]}.xlsx`);
+    await exportSimpleSheet(`aides_${new Date().toISOString().split("T")[0]}.xlsx`, "Aides", rows);
     toast({ title: "Export Excel réussi" });
   };
 

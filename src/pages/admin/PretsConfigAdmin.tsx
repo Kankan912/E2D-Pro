@@ -79,7 +79,7 @@ export default function PretsConfigAdmin({ embedded = false }: PretsConfigAdminP
       toast({ title: "Configuration sauvegardée avec succès" });
       queryClient.invalidateQueries({ queryKey: ["prets-config"] });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({ 
         title: "Erreur lors de la sauvegarde", 
         description: error.message, 

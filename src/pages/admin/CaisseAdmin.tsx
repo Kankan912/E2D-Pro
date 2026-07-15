@@ -164,7 +164,7 @@ const CaisseAdmin = () => {
       return;
     }
 
-    const XLSX = await import('xlsx');
+    const { exportSimpleSheet } = await import('@/lib/excel-export');
     const rows = operations.map(op => ({
       "Date": new Date(op.date_operation).toLocaleDateString("fr-FR"),
       "Type": op.type_operation === "entree" ? "Entrée" : "Sortie",
@@ -175,10 +175,7 @@ const CaisseAdmin = () => {
       "Opérateur": op.operateur ? `${op.operateur.prenom} ${op.operateur.nom}` : "-",
     }));
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Caisse");
-    XLSX.writeFile(wb, `caisse_${new Date().toISOString().split("T")[0]}.xlsx`);
+    await exportSimpleSheet(`caisse_${new Date().toISOString().split("T")[0]}.xlsx`, "Caisse", rows);
     toast({ title: "Export Excel réussi" });
   };
 

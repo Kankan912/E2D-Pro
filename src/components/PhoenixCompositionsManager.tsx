@@ -34,8 +34,7 @@ export default function PhoenixCompositionsManager() {
     queryKey: ['phoenix-joueurs-disponibles'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('membres')
-        .select('*')
+        .from('membres').select('id, user_id, profile_id, nom, prenom, telephone, email, photo_url, fonction, equipe, statut, association_id, created_at, updated_at')
         .eq('est_adherent_phoenix', true)
         .eq('statut', 'actif')
         .order('nom');
@@ -105,7 +104,7 @@ export default function PhoenixCompositionsManager() {
         description: "Composition enregistrée avec succès",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Erreur",
         description: error.message || "Impossible de sauvegarder la composition",

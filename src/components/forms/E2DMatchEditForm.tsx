@@ -29,7 +29,7 @@ type MatchFormData = z.infer<typeof matchSchema>;
 interface E2DMatchEditFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  match: any;
+  match: unknown;
   onSuccess?: () => void;
 }
 

@@ -3,7 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { Target, Activity, TrendingUp } from "lucide-react";
 
 interface StatsMatchDetailleeProps {
-  match: any;
+  match: unknown;
 }
 
 export default function StatsMatchDetaillee({ match }: StatsMatchDetailleeProps) {
@@ -22,7 +22,7 @@ export default function StatsMatchDetaillee({ match }: StatsMatchDetailleeProps)
     fautesAdverses: 12,
   };
 
-  const StatBar = ({ label, value, maxValue, color = "primary" }: any) => (
+  const StatBar = ({ label, value, maxValue, color = "primary" }: unknown) => (
     <div className="space-y-2">
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">{label}</span>

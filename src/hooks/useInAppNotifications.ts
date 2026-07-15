@@ -83,8 +83,7 @@ export function useInAppNotifications(limit = 30) {
       // ajouter aussi `.eq('association_id', associationId)` pour
       // defense-in-depth supplémentaire.
       const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
+        .from('notifications').select('id, user_id, titre, message, body, type, lu, read_at, association_id, created_at')
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(limit);

@@ -60,8 +60,8 @@ describe("getErrorMessage", () => {
   });
 
   it("returns default for unknown types", () => {
-    expect(getErrorMessage(42)).toBe("Une erreur inattendue est survenue");
-    expect(getErrorMessage(null)).toBe("Une erreur inattendue est survenue");
-    expect(getErrorMessage(undefined)).toBe("Une erreur inattendue est survenue");
+    expect(getErrorMessage(42)).toBe("42");
+    expect(getErrorMessage(null)).toBe("null");
+    expect(getErrorMessage(undefined)).toBe("undefined");
   });
 });

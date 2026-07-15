@@ -11,8 +11,7 @@ export default function PhoenixEquipesManager() {
     queryKey: ['phoenix-adherents'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('membres')
-        .select('*')
+        .from('membres').select('id, user_id, profile_id, nom, prenom, telephone, email, photo_url, fonction, equipe, statut, association_id, created_at, updated_at')
         .eq('est_adherent_phoenix', true)
         .eq('statut', 'actif')
         .order('nom');
@@ -25,7 +24,7 @@ export default function PhoenixEquipesManager() {
   const equipeJaune = adherents?.filter(a => a.equipe_jaune_rouge === 'jaune') || [];
   const equipeRouge = adherents?.filter(a => a.equipe_jaune_rouge === 'rouge') || [];
 
-  const EquipeCard = ({ equipe, couleur }: { equipe: any[], couleur: 'jaune' | 'rouge' }) => (
+  const EquipeCard = ({ equipe, couleur }: { equipe: unknown[], couleur: 'jaune' | 'rouge' }) => (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">

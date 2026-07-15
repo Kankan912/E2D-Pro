@@ -55,7 +55,7 @@ export interface Donation {
   paypal_transaction_id?: string;
   helloasso_payment_id?: string;
   bank_transfer_reference?: string;
-  transaction_metadata?: Record<string, any>;
+  transaction_metadata?: Record<string, unknown>;
   donor_message?: string;
   fiscal_receipt_sent: boolean;
   fiscal_receipt_url?: string;

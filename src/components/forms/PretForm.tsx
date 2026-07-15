@@ -34,8 +34,8 @@ type PretFormData = z.infer<typeof pretSchema>;
 interface PretFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
-  initialData?: any;
+  onSubmit: (data: unknown) => void;
+  initialData?: unknown;
 }
 
 export default function PretForm({ open, onClose, onSubmit, initialData }: PretFormProps) {

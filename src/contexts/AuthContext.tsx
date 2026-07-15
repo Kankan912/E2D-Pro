@@ -188,7 +188,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { allowed: true, status: 'actif' };
     } catch (error: unknown) {
       logger.error('[AuthContext] Error in checkMemberStatus:', error);
-      // Fail-closed: any unexpected error blocks access.
+      // Fail-closed: unknown unexpected error blocks access.
       return { allowed: false, status: 'error' };
     }
   };
@@ -335,8 +335,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const [profileRes, roleRes, userPerms] = await withTimeout(
         Promise.all([
           supabase
-            .from('profiles')
-            .select('*')
+            .from('profiles').select('id, nom, prenom, telephone, email, photo_url, statut, status, must_change_password, password_changed, association_id, created_at, updated_at')
             .eq('id', userId)
             .maybeSingle(),
           supabase

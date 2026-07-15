@@ -13,7 +13,7 @@ export function AssociationSwitcher() {
         <SelectValue placeholder="Sélectionner une association" />
       </SelectTrigger>
       <SelectContent>
-        {associations.map((a: any) => (
+        {associations.map((a: unknown) => (
           <SelectItem key={a.id} value={a.id}>{a.nom}</SelectItem>
         ))}
       </SelectContent>

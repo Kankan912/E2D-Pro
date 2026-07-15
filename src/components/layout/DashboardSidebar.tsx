@@ -144,8 +144,7 @@ export function DashboardSidebar() {
     queryFn: async () => {
       const today = new Date().toISOString().split("T")[0];
       const { count, error } = await supabase
-        .from("prets")
-        .select("*", { count: "exact", head: true })
+        .from('prets').select('*', { count: 'exact', head: true })
         .lt("echeance", today)
         .neq("statut", "rembourse");
       if (error) throw error;

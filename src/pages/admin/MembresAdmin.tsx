@@ -151,7 +151,7 @@ export default function MembresAdmin() {
     setShowForm(true);
   };
 
-  const handleFormSubmit = async (data: any) => {
+  const handleFormSubmit = async (data: unknown) => {
     const { role_id, ...memberData } = data;
     
     if (selectedMember) {
@@ -187,7 +187,7 @@ export default function MembresAdmin() {
       createMember.mutate(
         { ...memberData, date_inscription: new Date().toISOString().split('T')[0] },
         {
-          onSuccess: async (newMember: any) => {
+          onSuccess: async (newMember: unknown) => {
             // Assigner le rôle si sélectionné
             if (role_id && role_id !== 'none' && newMember?.id) {
               await supabase

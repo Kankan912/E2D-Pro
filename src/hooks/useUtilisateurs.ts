@@ -24,8 +24,7 @@ export function useUtilisateurs() {
     queryFn: async () => {
       // Fetch profiles - exclure les utilisateurs supprimés
       const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("*")
+        .from('profiles').select('id, nom, prenom, telephone, email, photo_url, statut, status, must_change_password, password_changed, association_id, created_at, updated_at')
         .neq("status", "supprime")
         .order("created_at", { ascending: false });
 

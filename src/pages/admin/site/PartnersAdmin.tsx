@@ -24,7 +24,7 @@ export default function PartnersAdmin() {
   const updatePartner = useUpdatePartner();
   const deletePartner = useDeletePartner();
   const [open, setOpen] = useState(false);
-  const [editingPartner, setEditingPartner] = useState<any>(null);
+  const [editingPartner, setEditingPartner] = useState<unknown>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const {
@@ -46,7 +46,7 @@ export default function PartnersAdmin() {
     setEditingPartner(null);
   };
 
-  const handleEdit = (partner: any) => {
+  const handleEdit = (partner: unknown) => {
     setEditingPartner(partner);
     reset({
       nom: partner.nom ?? "",

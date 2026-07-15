@@ -130,7 +130,7 @@ export default function UserMemberLinkManager() {
       queryClient.invalidateQueries({ queryKey: ['all-profiles'] });
       toast({ title: "Synchronisé", description: "Les données du profil ont été mises à jour." });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
     }
   });
@@ -157,7 +157,7 @@ export default function UserMemberLinkManager() {
       setShowLinkDialog(false);
       setSelectedMember(null);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
     }
   });
@@ -176,7 +176,7 @@ export default function UserMemberLinkManager() {
       queryClient.invalidateQueries({ queryKey: ['orphan-profiles'] });
       toast({ title: "Déliaison effectuée", description: "Le membre n'est plus lié à un compte." });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
     }
   });

@@ -49,8 +49,7 @@ export default function MobileMoneyAdmin() {
     queryKey: ["momo-pending"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("donations")
-        .select("*")
+        .from('donations').select('id, donor_name, donor_email, donor_phone, amount, currency, status, payment_method, association_id, created_at')
         .in("payment_method", MOMO_METHODS)
         .eq("payment_status", "pending")
         .order("created_at", { ascending: false });
@@ -65,8 +64,7 @@ export default function MobileMoneyAdmin() {
     queryFn: async () => {
       const since = subDays(new Date(), 30).toISOString();
       const { data, error } = await supabase
-        .from("donations")
-        .select("*")
+        .from('donations').select('id, donor_name, donor_email, donor_phone, amount, currency, status, payment_method, association_id, created_at')
         .in("payment_method", MOMO_METHODS)
         .gte("created_at", since)
         .order("created_at", { ascending: false });
@@ -147,7 +145,7 @@ export default function MobileMoneyAdmin() {
       queryClient.invalidateQueries({ queryKey: ["momo-history"] });
       toast({ title: "🧪 Données de test insérées", description: `${sandboxCount} don(s) fictif(s) créé(s).` });
     },
-    onError: (e: any) =>
+    onError: (e: unknown) =>
       toast({ title: "Erreur sandbox", description: e.message, variant: "destructive" }),
   });
 
@@ -164,7 +162,7 @@ export default function MobileMoneyAdmin() {
       queryClient.invalidateQueries({ queryKey: ["momo-history"] });
       toast({ title: "🗑️ Données de test supprimées" });
     },
-    onError: (e: any) =>
+    onError: (e: unknown) =>
       toast({ title: "Erreur", description: e.message, variant: "destructive" }),
   });
 
@@ -230,7 +228,7 @@ export default function MobileMoneyAdmin() {
                   </div>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {(d as any).donor_phone || "—"}
+                  {(d as unknown).donor_phone || "—"}
                 </TableCell>
                 <TableCell className="text-right font-semibold">
                   {d.amount.toLocaleString("fr-FR")} {d.currency}

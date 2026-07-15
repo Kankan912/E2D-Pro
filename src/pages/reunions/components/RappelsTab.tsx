@@ -12,7 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 export default function RappelsTab() {
   const [joursAvant, setJoursAvant] = useState("2");
   const [sending, setSending] = useState(false);
-  const [lastResult, setLastResult] = useState<any>(null);
+  const [lastResult, setLastResult] = useState<unknown>(null);
   const { toast } = useToast();
 
   const { data: prochReunions } = useQuery({

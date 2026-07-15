@@ -5,7 +5,7 @@ import { useSiteAbout } from "@/hooks/useSiteContent";
 const About = () => {
   const { data: about, isLoading } = useSiteAbout();
 
-  const iconMap: Record<string, any> = {
+  const iconMap: Record<string, unknown> = {
     Target,
     Users,
     Heart,
@@ -60,7 +60,7 @@ const About = () => {
 
         {/* Values Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {valeurs.map((value: any, index: number) => {
+          {valeurs.map((value: unknown, index: number) => {
             const Icon = iconMap[value.icon] || Target;
             return (
               <div 

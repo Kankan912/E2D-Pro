@@ -366,7 +366,7 @@ const Don = () => {
         donationId={completedDonationId}
         amount={amount}
         currency={currency}
-        method={selectedMethod as any}
+        method={selectedMethod as unknown}
         isRecurring={isRecurring}
         donorName={donorName}
         donorEmail={donorEmail}

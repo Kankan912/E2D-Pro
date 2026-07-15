@@ -18,9 +18,8 @@ export const useLatestSecurityScan = () => {
   return useQuery({
     queryKey: ["security-scans", "latest"],
     queryFn: async (): Promise<SecurityScan | null> => {
-      const { data, error } = await (supabase as any)
-        .from("security_scans")
-        .select("*")
+      const { data, error } = await (supabase as unknown)
+        .from('security_scans').select('id, scan_type, result, vulnerabilities, created_at')
         .order("scan_date", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -34,9 +33,8 @@ export const useSecurityScans = () => {
   return useQuery({
     queryKey: ["security-scans", "all"],
     queryFn: async (): Promise<SecurityScan[]> => {
-      const { data, error } = await (supabase as any)
-        .from("security_scans")
-        .select("*")
+      const { data, error } = await (supabase as unknown)
+        .from('security_scans').select('id, scan_type, result, vulnerabilities, created_at')
         .order("scan_date", { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -58,7 +56,7 @@ export const useCreateSecurityScan = () => {
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id;
       if (!uid) throw new Error("Non authentifié");
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown)
         .from("security_scans")
         .insert({ ...input, created_by: uid })
         .select()

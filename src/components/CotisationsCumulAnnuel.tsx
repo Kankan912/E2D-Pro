@@ -88,7 +88,7 @@ export default function CotisationsCumulAnnuel({ exerciceId }: CotisationsCumulA
           .eq('exercice_id', exercice.id)
           .eq('actif', true);
         if (error) throw error;
-        return (data || []).map((d: any) => d.cotisations_types).filter(Boolean);
+        return (data || []).map((d: unknown) => d.cotisations_types).filter(Boolean);
       }
       const { data, error } = await supabase
         .from('cotisations_types')
@@ -204,7 +204,7 @@ export default function CotisationsCumulAnnuel({ exerciceId }: CotisationsCumulA
         if (!full.includes(term)) return false;
       }
       if (filtreEquipe !== "toutes") {
-        if ((m as any).equipe_jaune_rouge !== filtreEquipe) return false;
+        if ((m as unknown).equipe_jaune_rouge !== filtreEquipe) return false;
       }
       if (!matchStatut(m.progression, filtreStatut)) return false;
       return true;
@@ -243,7 +243,7 @@ export default function CotisationsCumulAnnuel({ exerciceId }: CotisationsCumulA
     const header = ["Membre", "Équipe", "Attendu (FCFA)", "Payé (FCFA)", "Reste (FCFA)", "Progression (%)", "Statut"];
     const lines = filteredStats.map(m => [
       `${m.prenom ?? ""} ${m.nom ?? ""}`.trim(),
-      equipeLabel((m as any).equipe_jaune_rouge),
+      equipeLabel((m as unknown).equipe_jaune_rouge),
       Math.round(m.attendu).toString(),
       Math.round(m.paye).toString(),
       Math.max(0, Math.round(m.attendu - m.paye)).toString(),
@@ -285,7 +285,7 @@ export default function CotisationsCumulAnnuel({ exerciceId }: CotisationsCumulA
       head: [["Membre", "Équipe", "Attendu (FCFA)", "Payé (FCFA)", "Reste (FCFA)", "Progression", "Statut"]],
       body: filteredStats.map(m => [
         `${m.prenom ?? ""} ${m.nom ?? ""}`.trim(),
-        equipeLabel((m as any).equipe_jaune_rouge),
+        equipeLabel((m as unknown).equipe_jaune_rouge),
         Math.round(m.attendu).toLocaleString("fr-FR"),
         Math.round(m.paye).toLocaleString("fr-FR"),
         Math.max(0, Math.round(m.attendu - m.paye)).toLocaleString("fr-FR"),
@@ -296,8 +296,8 @@ export default function CotisationsCumulAnnuel({ exerciceId }: CotisationsCumulA
       headStyles: { fillColor: [37, 99, 235], textColor: 255 },
       alternateRowStyles: { fillColor: [245, 247, 250] },
       didDrawPage: (data) => {
-        const pageCount = (doc as any).internal.getNumberOfPages();
-        const current = (doc as any).internal.getCurrentPageInfo().pageNumber;
+        const pageCount = (doc as unknown).internal.getNumberOfPages();
+        const current = (doc as unknown).internal.getCurrentPageInfo().pageNumber;
         doc.setFontSize(8);
         doc.text(`Page ${current} / ${pageCount}`, pageWidth - 14, doc.internal.pageSize.getHeight() - 8, { align: "right" });
       },
@@ -460,7 +460,7 @@ export default function CotisationsCumulAnnuel({ exerciceId }: CotisationsCumulA
             </TableHeader>
             <TableBody>
               {filteredStats.map((membre) => {
-                const eq = (membre as any).equipe_jaune_rouge as string | null;
+                const eq = (membre as unknown).equipe_jaune_rouge as string | null;
                 return (
                   <TableRow key={membre.id}>
                     <TableCell className="font-medium">

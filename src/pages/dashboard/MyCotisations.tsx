@@ -91,7 +91,7 @@ const MyCotisations = () => {
       );
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const typesList = (types || []).map((t: any) => t.cotisations_types).filter(Boolean);
+      const typesList = (types || []).map((t: unknown) => t.cotisations_types).filter(Boolean);
       let attendu = 0;
       for (const t of typesList) {
         const isMensuelle = (t.nom as string).toLowerCase().includes("cotisation mensuelle");

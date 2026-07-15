@@ -28,8 +28,7 @@ export const useAdhesions = () => {
     queryKey: ["adhesions"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("adhesions")
-        .select("*")
+        .from('adhesions').select('id, user_id, nom, prenom, email, telephone, statut, payment_status, processed, association_id, created_at')
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -57,7 +56,7 @@ export const useAdhesions = () => {
         description: "Le statut de la demande a été modifié",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Erreur",
         description: error.message || "Impossible de mettre à jour le statut",

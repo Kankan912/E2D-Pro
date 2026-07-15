@@ -108,7 +108,7 @@ export default function ReunionSanctionsManager({ reunionId }: ReunionSanctionsM
 
   // Ajouter une sanction
   const addSanction = useMutation({
-    mutationFn: async (sanction: any) => {
+    mutationFn: async (sanction: unknown) => {
       const { data, error } = await supabase
         .from('reunions_sanctions')
         .insert([sanction])
@@ -125,7 +125,7 @@ export default function ReunionSanctionsManager({ reunionId }: ReunionSanctionsM
       });
       resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Erreur",
         description: error.message,
@@ -350,7 +350,7 @@ export default function ReunionSanctionsManager({ reunionId }: ReunionSanctionsM
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sanctions.map((sanction: any) => (
+                {sanctions.map((sanction: unknown) => (
                   <TableRow key={sanction.id}>
                     <TableCell>
                       {sanction.membre?.prenom} {sanction.membre?.nom}

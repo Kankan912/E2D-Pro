@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+// exceljs available via @/lib/excel-export
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from "@/integrations/supabase/client";
@@ -11,10 +11,10 @@ export class ExportService {
     type: string;
     format: string;
     nom: string;
-    configuration?: any;
+    configuration?: unknown;
   }) {
     try {
-      let data: any[] = [];
+      let data: unknown[] = [];
       let columns: string[] = [];
 
       // Récupérer les données selon le type
@@ -270,7 +270,7 @@ export class ExportService {
     }
   }
 
-  private static async exportToExcel(data: any[], columns: string[], filename: string, config?: any) {
+  private static async exportToExcel(data: unknown[], columns: string[], filename: string, config?: unknown) {
     // Créer les données avec en-tête personnalisé
     const headerRows = [
       ['ASSOCIATION E2D'],
@@ -311,7 +311,7 @@ export class ExportService {
     XLSX.writeFile(wb, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
   }
 
-  private static async exportToPDF(data: any[], columns: string[], filename: string, config?: any) {
+  private static async exportToPDF(data: unknown[], columns: string[], filename: string, config?: unknown) {
     const doc = new jsPDF();
     
     // Logo E2D en haut à droite (chargé dynamiquement)
@@ -426,7 +426,7 @@ export class ExportService {
     doc.save(`${filename}_${new Date().toISOString().split('T')[0]}.pdf`);
   }
 
-  private static async exportToCSV(data: any[], columns: string[], filename: string) {
+  private static async exportToCSV(data: unknown[], columns: string[], filename: string) {
     // Exclure statut_raw des exports CSV
     const cleanData = data.map(row => {
       const { statut_raw, ...rest } = row;

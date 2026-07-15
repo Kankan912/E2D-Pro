@@ -22,9 +22,9 @@ export default function AlbumDetail() {
   const { data: albums, isLoading: loadingAlbum } = useSiteGalleryAlbums();
   const { data: items = [], isLoading: loadingItems } = useSiteGalleryByAlbum(albumId);
 
-  const album = albums?.find((a: any) => a.id === albumId);
+  const album = albums?.find((a: unknown) => a.id === albumId);
 
-  const lightboxImages: LightboxImage[] = items.map((item: any) => ({
+  const lightboxImages: LightboxImage[] = items.map((item: unknown) => ({
     url: item.image_url || item.video_url,
     title: item.titre,
     isVideo: item.categorie?.toLowerCase() === "vidéo" || !!item.video_url,
@@ -101,7 +101,7 @@ export default function AlbumDetail() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {items.map((item: any, index: number) => {
+                  {items.map((item: unknown, index: number) => {
                     const isVideo = item.categorie?.toLowerCase() === "vidéo" || !!item.video_url;
                     const mediaUrl = item.image_url || item.video_url;
 

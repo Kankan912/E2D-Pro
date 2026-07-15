@@ -1,7 +1,7 @@
 import { format, parseISO } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+// exceljs available via @/lib/excel-export
 import { addE2DHeader, addE2DFooter } from "@/lib/pdf-utils";
 import type { CotisationWithJoins, PretWithJoins, SanctionWithJoins, EpargneWithJoins } from "@/types/supabase-joins";
 

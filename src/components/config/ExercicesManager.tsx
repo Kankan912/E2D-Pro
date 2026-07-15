@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Calendar, Plus, Edit, Lock, Trash2, Loader2, Percent, ClipboardCheck } from "lucide-react";
 import { format } from "date-fns";
 
-const safeFormat = (dateStr: string | null | undefined, fmt: string, options?: any) => {
+const safeFormat = (dateStr: string | null | undefined, fmt: string, options?: unknown) => {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "—";
@@ -64,8 +64,7 @@ export function ExercicesManager() {
     queryKey: ["exercices"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("exercices")
-        .select("*")
+        .from('exercices').select('id, nom, date_debut, date_fin, statut, association_id, created_at')
         .order("date_debut", { ascending: false });
       
       if (error) throw error;

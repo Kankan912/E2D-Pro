@@ -21,7 +21,7 @@ type CampagneFormData = z.infer<typeof campagneSchema>;
 interface NotificationCampagneFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: unknown) => void;
   createdBy: string;
 }
 

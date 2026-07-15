@@ -18,8 +18,7 @@ const MyDonations = () => {
       if (!user?.email) return [];
 
       const { data, error } = await supabase
-        .from("donations")
-        .select("*")
+        .from('donations').select('id, donor_name, donor_email, donor_phone, amount, currency, status, payment_method, association_id, created_at')
         .eq("donor_email", user.email)
         .order("created_at", { ascending: false });
 

@@ -65,7 +65,7 @@ const Events = () => {
           <div className="space-y-4">
             {events && events.length > 0 ? (
               <>
-                {events.slice(0, displayCount).map((event: any) => (
+                {events.slice(0, displayCount).map((event: unknown) => (
                   <Link key={event.id} to={`/evenements/${event.id}`}>
                     <Card className="group hover:shadow-strong transition-all duration-300 border-border cursor-pointer">
                       <CardContent className="p-6">
@@ -127,7 +127,7 @@ const Events = () => {
 
           {/* Events Carousel with Images */}
           <div className="relative rounded-2xl overflow-hidden shadow-strong h-full min-h-[500px]">
-            {events && events.length > 0 && events.some((e: any) => e.image_url) ? (
+            {events && events.length > 0 && events.some((e: unknown) => e.image_url) ? (
               <Carousel
                 plugins={carouselConfig?.auto_play ? [plugin.current] : []}
                 className="w-full h-full"
@@ -137,8 +137,8 @@ const Events = () => {
               >
                 <CarouselContent className="ml-0 h-full">
                   {events
-                    .filter((event: any) => event.image_url)
-                    .map((event: any) => (
+                    .filter((event: unknown) => event.image_url)
+                    .map((event: unknown) => (
                       <CarouselItem key={event.id} className="pl-0 h-full min-h-[500px]">
                         <div className="relative w-full h-full">
                           <img

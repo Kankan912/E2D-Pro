@@ -28,7 +28,7 @@ interface ExportsAdminProps {
 
 export default function ExportsAdmin({ embedded = false }: ExportsAdminProps) {
   const [formOpen, setFormOpen] = useState(false);
-  const [selectedExport, setSelectedExport] = useState<any>(null);
+  const [selectedExport, setSelectedExport] = useState<unknown>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { hasPermission, enforcePermission } = usePermissions();
@@ -50,7 +50,7 @@ export default function ExportsAdmin({ embedded = false }: ExportsAdminProps) {
   });
 
   const createExport = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: unknown) => {
       const { error } = await supabase.from('exports_programmes').insert(data);
       if (error) throw error;
     },
@@ -62,7 +62,7 @@ export default function ExportsAdmin({ embedded = false }: ExportsAdminProps) {
   });
 
   const updateExport = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+    mutationFn: async ({ id, data }: { id: string; data: unknown}) => {
       const { error } = await supabase.from('exports_programmes').update(data).eq('id', id);
       if (error) throw error;
     },
@@ -86,7 +86,7 @@ export default function ExportsAdmin({ embedded = false }: ExportsAdminProps) {
     }
   });
 
-  const executeExport = async (exp: any) => {
+  const executeExport = async (exp: unknown) => {
     try {
       toast({ title: "Export en cours...", description: "Génération du fichier" });
       
@@ -113,7 +113,7 @@ export default function ExportsAdmin({ embedded = false }: ExportsAdminProps) {
     }
   };
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = (data: unknown) => {
     if (selectedExport) {
       if (!enforcePermission('exports', 'update')) return;
       updateExport.mutate({ id: selectedExport.id, data });

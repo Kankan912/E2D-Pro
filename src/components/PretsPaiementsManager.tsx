@@ -50,8 +50,7 @@ export default function PretsPaiementsManager({ pretId, open, onClose }: PretsPa
     queryKey: ['prets-paiements', pretId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('prets_paiements')
-        .select('*')
+        .from('prets_paiements').select('id, pret_id, montant_paye, date_paiement, mode_paiement, type_paiement, notes, created_at, updated_at')
         .eq('pret_id', pretId)
         .order('date_paiement', { ascending: false });
       if (error) throw error;
@@ -157,7 +156,7 @@ export default function PretsPaiementsManager({ pretId, open, onClose }: PretsPa
       // Protection: garantir qu'aucune valeur ne devienne négative
       nouveauCapitalPaye = Math.min(nouveauCapitalPaye, capitalInitial);
       
-      const updates: any = { 
+      const updates: unknown = { 
         montant_paye: nouveauTotalPaye,
         interet_paye: Math.max(0, nouvelInteretPaye),
         capital_paye: Math.max(0, nouveauCapitalPaye),
@@ -182,7 +181,7 @@ export default function PretsPaiementsManager({ pretId, open, onClose }: PretsPa
       setTypePaiement("mixte");
       setDatePaiement(new Date().toISOString().split('T')[0]);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({ title: "Erreur lors de l'ajout du paiement", description: error.message, variant: "destructive" });
     },
   });
@@ -454,7 +453,7 @@ export default function PretsPaiementsManager({ pretId, open, onClose }: PretsPa
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {reconductions.map((recon: any) => (
+                      {reconductions.map((recon: unknown) => (
                         <TableRow key={recon.id}>
                           <TableCell>
                             {new Date(recon.date_reconduction).toLocaleDateString('fr-FR')}

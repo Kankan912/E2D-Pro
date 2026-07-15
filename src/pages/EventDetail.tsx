@@ -117,7 +117,7 @@ export default function EventDetail() {
   // Album galerie lié à l'événement
   const { data: linkedAlbumItems = [] } = useSiteGalleryByAlbum(event?.album_id || undefined);
   const { data: allAlbums } = useSiteGalleryAlbums();
-  const linkedAlbum = allAlbums?.find((a: any) => a.id === event?.album_id);
+  const linkedAlbum = allAlbums?.find((a: unknown) => a.id === event?.album_id);
 
   const openLightbox = (index: number) => {
     setLightboxIndex(index);
@@ -495,7 +495,7 @@ export default function EventDetail() {
                   Album Photos : {linkedAlbum.titre}
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                  {linkedAlbumItems.slice(0, 8).map((item: any) => (
+                  {linkedAlbumItems.slice(0, 8).map((item: unknown) => (
                     <Link key={item.id} to={`/albums/${linkedAlbum.id}`}>
                       <img
                         src={item.image_url || item.video_url}

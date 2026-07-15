@@ -19,8 +19,7 @@ export const useDonations = (filters?: DonationFilters) => {
     queryKey: ["donations", associationId, filters],
     queryFn: async () => {
       let query = supabase
-        .from("donations")
-        .select("*")
+        .from('donations').select('id, donor_name, donor_email, donor_phone, amount, currency, status, payment_method, association_id, created_at')
         .order("created_at", { ascending: false });
 
       if (filters?.startDate) {
@@ -72,8 +71,7 @@ export const useMobileMoneyDonations = (status?: string) => {
     queryKey: ["mobile-money-donations", associationId, status],
     queryFn: async () => {
       let query = supabase
-        .from("donations")
-        .select("*")
+        .from('donations').select('id, donor_name, donor_email, donor_phone, amount, currency, status, payment_method, association_id, created_at')
         .in("payment_method", ["orange_money", "mtn_money"])
         .order("created_at", { ascending: false });
 

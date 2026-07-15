@@ -172,7 +172,7 @@ export default function CotisationSaisieForm({ reunionId, exerciceId, onSuccess 
       setMontant("");
       onSuccess?.();
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
     }
   });

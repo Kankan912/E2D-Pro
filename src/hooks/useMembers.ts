@@ -39,8 +39,7 @@ export const useMembers = () => {
     queryKey: ["members"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("membres")
-        .select("*")
+        .from('membres').select('id, user_id, profile_id, nom, prenom, telephone, email, photo_url, fonction, equipe, statut, association_id, created_at, updated_at')
         .order("nom", { ascending: true })
         .limit(50);
 
@@ -75,7 +74,7 @@ export const useMembers = () => {
         description: "Le membre a été ajouté avec succès",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Erreur",
         description: error.message || "Impossible de créer le membre",
@@ -122,7 +121,7 @@ export const useMembers = () => {
         description: "Les informations ont été enregistrées",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Erreur",
         description: error.message || "Impossible de mettre à jour le membre",
@@ -153,7 +152,7 @@ export const useMembers = () => {
         description: "Le membre a été supprimé avec succès",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Erreur",
         description: error.message || "Impossible de supprimer le membre",

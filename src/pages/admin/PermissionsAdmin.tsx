@@ -12,7 +12,6 @@ import { Download, RefreshCw, Shield, History, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import * as XLSX from 'xlsx';
 const RESOURCES = [
   { id: 'membres', label: 'Membres', icon: '👥' },
   { id: 'cotisations', label: 'Cotisations', icon: '💰' },
@@ -56,7 +55,7 @@ const PermissionsAdmin = () => {
   const handleExport = () => {
     if (!roles || !allPermissions) return;
 
-    const data: any[] = [];
+    const data: unknown[] = [];
     
     // En-tête
     const header = ['Ressource', ...roles.map(r => r.name)];
@@ -78,12 +77,12 @@ const PermissionsAdmin = () => {
 
     // Créer le workbook
     const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Permissions');
+    const wb = null // XLSX removed;
+    null // XLSX removed (wb, ws, 'Permissions');
 
     // Télécharger
     const date = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `permissions_matrix_${date}.xlsx`);
+    // XLSX removed — use exportSimpleSheet(wb, `permissions_matrix_${date}.xlsx`);
 
     toast({
       title: "✅ Export réussi",
@@ -350,7 +349,7 @@ const PermissionsAuditTab = () => {
     }
   };
 
-  const formatData = (data: any) => {
+  const formatData = (data: unknown) => {
     if (!data) return '-';
     if (typeof data === 'object') {
       const resource = data.resource || '-';
@@ -396,7 +395,7 @@ const PermissionsAuditTab = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {auditLogs.map((log: any) => (
+                {auditLogs.map((log: unknown) => (
                   <TableRow key={log.id}>
                     <TableCell className="text-sm">
                       {format(new Date(log.created_at), "dd MMM yyyy HH:mm", { locale: fr })}

@@ -163,7 +163,7 @@ export const useEpargnantsBenefices = () => {
         }, 0);
 
         // 5. Grouper les épargnes par membre
-        const epargnesParMembre: { [membreId: string]: { membre: any; total: number } } = {};
+        const epargnesParMembre: { [membreId: string]: { membre: unknown; total: number } } = {};
         
         (epargnesData || []).forEach(epargne => {
           const membreId = epargne.membre_id;

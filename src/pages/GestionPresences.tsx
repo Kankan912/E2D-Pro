@@ -111,7 +111,7 @@ export default function GestionPresences() {
   // Toggle E2D presence
   const toggleE2D = useMutation({
     mutationFn: async ({ membreId, isPresent }: { membreId: string; isPresent: boolean }) => {
-      const existing = presencesE2D.find((p: any) => p.membre_id === membreId);
+      const existing = presencesE2D.find((p: unknown) => p.membre_id === membreId);
       if (existing) {
         const { error } = await supabase
           .from('sport_e2d_presences')
@@ -149,7 +149,7 @@ export default function GestionPresences() {
         adherentId = created.id;
       }
 
-      const existing = presencesPhoenix.find((p: any) => p.adherent_id === adherentId);
+      const existing = presencesPhoenix.find((p: unknown) => p.adherent_id === adherentId);
       if (existing) {
         const { error } = await supabase
           .from('phoenix_presences')
@@ -175,9 +175,9 @@ export default function GestionPresences() {
 
   const isPresent = (membreId: string, type: 'e2d' | 'phoenix') => {
     if (type === 'e2d') {
-      return presencesE2D.find((p: any) => p.membre_id === membreId)?.present || false;
+      return presencesE2D.find((p: unknown) => p.membre_id === membreId)?.present || false;
     } else {
-      return presencesPhoenix.find((p: any) => p.adherent_id === membreId)?.present || false;
+      return presencesPhoenix.find((p: unknown) => p.adherent_id === membreId)?.present || false;
     }
   };
 

@@ -23,7 +23,7 @@ export default function ActivitiesAdmin() {
   const updateActivity = useUpdateActivity();
   const deleteActivity = useDeleteActivity();
   const [open, setOpen] = useState(false);
-  const [editingActivity, setEditingActivity] = useState<any>(null);
+  const [editingActivity, setEditingActivity] = useState<unknown>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const {
@@ -47,7 +47,7 @@ export default function ActivitiesAdmin() {
     setEditingActivity(null);
   };
 
-  const handleEdit = (activity: any) => {
+  const handleEdit = (activity: unknown) => {
     setEditingActivity(activity);
     reset({
       titre: activity.titre ?? "",

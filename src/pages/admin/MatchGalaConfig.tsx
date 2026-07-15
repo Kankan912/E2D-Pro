@@ -25,12 +25,12 @@ export default function MatchGalaConfig() {
     },
   });
 
-  const { register, handleSubmit, setValue } = useForm<any>({
+  const { register, handleSubmit, setValue } = useForm<unknown>({
     values: config || {},
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: unknown) => {
       const { error } = await supabase
         .from("match_gala_config")
         .update(data)
@@ -46,7 +46,7 @@ export default function MatchGalaConfig() {
     },
   });
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: unknown) => {
     updateMutation.mutate(data);
   };
 

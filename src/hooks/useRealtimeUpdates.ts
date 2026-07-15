@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const POSTGRES_CHANGES: any = 'postgres_changes';
+const POSTGRES_CHANGES: unknown = 'postgres_changes';
 
 /**
  * Hook générique de souscription Realtime à une table Postgres.

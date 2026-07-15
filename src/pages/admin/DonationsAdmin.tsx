@@ -64,8 +64,7 @@ export default function DonationsAdmin() {
     queryKey: ['recurring-donations'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('donations')
-        .select('*')
+        .from('donations').select('id, donor_name, donor_email, donor_phone, amount, currency, status, payment_method, association_id, created_at')
         .eq('is_recurring', true)
         .order('created_at', { ascending: false });
       if (error) throw error;

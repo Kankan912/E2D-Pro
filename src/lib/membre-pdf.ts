@@ -39,7 +39,7 @@ export function membrePDFFooter(doc: jsPDF) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const internalAny = doc as any;
+  const internalAny = doc as unknown;
   const pageCount = internalAny.internal.getNumberOfPages();
   const current = internalAny.internal.getCurrentPageInfo().pageNumber;
   doc.setFontSize(8);

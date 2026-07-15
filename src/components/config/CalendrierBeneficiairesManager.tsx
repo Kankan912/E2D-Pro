@@ -48,8 +48,7 @@ export default function CalendrierBeneficiairesManager() {
     queryKey: ['exercices-calendrier'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('exercices')
-        .select('*')
+        .from('exercices').select('id, nom, date_debut, date_fin, statut, association_id, created_at')
         .order('date_debut', { ascending: false });
       if (error) throw error;
       return data;
@@ -128,7 +127,7 @@ export default function CalendrierBeneficiairesManager() {
 
   // Group beneficiaries by month (clé = mois 1..12 ou null)
   const groupedByMonth = useMemo(() => {
-    const groups = new Map<number | null, any[]>();
+    const groups = new Map<number | null, unknown[]>();
     moisExerciceList.forEach(m => groups.set(m.mois, []));
     groups.set(null, []);
 
@@ -138,7 +137,7 @@ export default function CalendrierBeneficiairesManager() {
       groups.get(key)!.push(b);
     });
 
-    groups.forEach((list) => list.sort((a: any, b: any) => a.rang - b.rang));
+    groups.forEach((list) => list.sort((a: unknown, b: unknown) => a.rang - b.rang));
     return groups;
   }, [calendrier, moisExerciceList]);
 
@@ -217,9 +216,9 @@ export default function CalendrierBeneficiairesManager() {
       const beneficiaires = groupedByMonth.get(moisKey) || [];
       if (beneficiaires.length === 0) return;
       const moisLabel = getMoisLabel(moisKey);
-      const noms = beneficiaires.map((b: any) => `${b.membres?.prenom || ''} ${b.membres?.nom || ''}`).join("\n");
-      const totalMensuel = beneficiaires.reduce((s: number, b: any) => s + Number(b.montant_mensuel), 0);
-      const totalAnnuel = beneficiaires.reduce((s: number, b: any) => s + Number(b.montant_total), 0);
+      const noms = beneficiaires.map((b: unknown) => `${b.membres?.prenom || ''} ${b.membres?.nom || ''}`).join("\n");
+      const totalMensuel = beneficiaires.reduce((s: number, b: unknown) => s + Number(b.montant_mensuel), 0);
+      const totalAnnuel = beneficiaires.reduce((s: number, b: unknown) => s + Number(b.montant_total), 0);
       tableData.push([
         moisLabel,
         noms,
@@ -398,8 +397,8 @@ export default function CalendrierBeneficiairesManager() {
                   if (beneficiaires.length === 0 && !isAdmin) return null;
 
                   const moisLabel = getMoisLabel(moisKey);
-                  const totalMensuel = beneficiaires.reduce((s: number, b: any) => s + Number(b.montant_mensuel), 0);
-                  const totalAnnuel = beneficiaires.reduce((s: number, b: any) => s + Number(b.montant_total), 0);
+                  const totalMensuel = beneficiaires.reduce((s: number, b: unknown) => s + Number(b.montant_mensuel), 0);
+                  const totalAnnuel = beneficiaires.reduce((s: number, b: unknown) => s + Number(b.montant_total), 0);
 
                   return (
                     <TableRow key={moisKey ?? 'null'} className={beneficiaires.length === 0 ? "opacity-50" : ""}>
@@ -418,7 +417,7 @@ export default function CalendrierBeneficiairesManager() {
                           <span className="text-muted-foreground text-sm italic">Aucun bénéficiaire</span>
                         ) : (
                           <div className="flex flex-wrap gap-1.5">
-                            {beneficiaires.map((b: any) => (
+                            {beneficiaires.map((b: unknown) => (
                               <div key={b.id} className="inline-flex items-center">
                                 {!isLocked && isAdmin ? (
                                   <Popover open={editingBeneficiaire === b.id} onOpenChange={(open) => setEditingBeneficiaire(open ? b.id : null)}>

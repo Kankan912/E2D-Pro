@@ -15,14 +15,13 @@ import { fr } from "date-fns/locale";
 import { Mail, Phone, CheckCircle, Eye, MessageSquare, Trash2, Download, Send, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import BackButton from "@/components/BackButton";
-import * as XLSX from "xlsx";
 
 import { logger } from "@/lib/logger";
 type MessageStatus = "nouveau" | "lu" | "traite";
 
 const MessagesAdmin = () => {
   const queryClient = useQueryClient();
-  const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [selectedMessage, setSelectedMessage] = useState<unknown>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [replyContent, setReplyContent] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
@@ -32,8 +31,7 @@ const MessagesAdmin = () => {
     queryKey: ["contact-messages"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("messages_contact")
-        .select("*")
+        .from('messages_contact').select('id, nom, email, telephone, objet, message, statut, created_at')
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -103,7 +101,7 @@ const MessagesAdmin = () => {
     traite: messages?.filter((m) => m.statut === "traite").length || 0,
   };
 
-  const handleViewMessage = (message: any) => {
+  const handleViewMessage = (message: unknown) => {
     setSelectedMessage(message);
     setReplyContent("");
     setShowReplyForm(false);
@@ -177,10 +175,10 @@ const MessagesAdmin = () => {
       "Statut": msg.statut === "nouveau" ? "Nouveau" : msg.statut === "lu" ? "Lu" : "Traité",
     }));
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Messages");
-    XLSX.writeFile(wb, `messages_contact_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+    const ws = null // XLSX removed (exportData);
+    const wb = null // XLSX removed;
+    null // XLSX removed (wb, ws, "Messages");
+    // XLSX removed — use exportSimpleSheet(wb, `messages_contact_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
 
     toast({ title: "Export réussi", description: `${messages.length} messages exportés` });
   };

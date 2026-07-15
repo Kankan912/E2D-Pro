@@ -6,7 +6,7 @@ import { useSiteActivities } from "@/hooks/useSiteContent";
 const Activities = () => {
   const { data: activities, isLoading } = useSiteActivities();
 
-  const iconMap: Record<string, any> = {
+  const iconMap: Record<string, unknown> = {
     Trophy,
     Users,
     Calendar,
@@ -50,7 +50,7 @@ const Activities = () => {
 
         {/* Activities Grid */}
         <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
-          {activities?.map((activity: any) => {
+          {activities?.map((activity: unknown) => {
             const Icon = iconMap[activity.icone] || Trophy;
             const features = activity.caracteristiques || [];
             return (

@@ -41,7 +41,7 @@ export default function SportPhoenix() {
   useSportEventSync();
   
   // Stats globales (désactivées pour l'instant)
-  const stats: any = null;
+  const stats: unknown = null;
 
   const { data: config } = useQuery({
     queryKey: ['sport-phoenix-config'],

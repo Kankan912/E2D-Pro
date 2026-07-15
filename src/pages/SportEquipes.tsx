@@ -11,8 +11,7 @@ export default function SportEquipes() {
     queryKey: ["membres-e2d"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("membres")
-        .select("*")
+        .from('membres').select('id, user_id, profile_id, nom, prenom, telephone, email, photo_url, fonction, equipe, statut, association_id, created_at, updated_at')
         .eq("est_membre_e2d", true)
         .eq("statut", "actif")
         .order("nom");
@@ -25,8 +24,7 @@ export default function SportEquipes() {
     queryKey: ["membres-phoenix"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("membres")
-        .select("*")
+        .from('membres').select('id, user_id, profile_id, nom, prenom, telephone, email, photo_url, fonction, equipe, statut, association_id, created_at, updated_at')
         .eq("est_adherent_phoenix", true)
         .eq("statut", "actif")
         .order("nom");

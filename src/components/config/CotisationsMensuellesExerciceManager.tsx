@@ -222,7 +222,7 @@ export function CotisationsMensuellesExerciceManager() {
       setAuditReason('');
       setPendingSave([]);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({ 
         title: "Erreur lors de la sauvegarde", 
         description: error.message,
@@ -253,7 +253,7 @@ export function CotisationsMensuellesExerciceManager() {
       toast({ title: "Initialisation terminée", description: `${membres?.filter(m => !isConfigured(m.id)).length} membres initialisés` });
       queryClient.invalidateQueries({ queryKey: ['cotisations-mensuelles-exercice', selectedExerciceId] });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
     }
   });

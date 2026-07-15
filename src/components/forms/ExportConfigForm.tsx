@@ -21,8 +21,8 @@ type ExportFormData = z.infer<typeof exportSchema>;
 interface ExportConfigFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
-  initialData?: any;
+  onSubmit: (data: unknown) => void;
+  initialData?: unknown;
 }
 
 export default function ExportConfigForm({ open, onClose, onSubmit, initialData }: ExportConfigFormProps) {

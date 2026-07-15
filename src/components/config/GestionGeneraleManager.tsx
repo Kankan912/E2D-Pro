@@ -40,8 +40,7 @@ export function GestionGeneraleManager() {
     queryKey: ["configurations"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("configurations")
-        .select("*")
+        .from('configurations').select('cle, valeur, description, created_at, updated_at')
         .order("cle");
       
       if (error) throw error;

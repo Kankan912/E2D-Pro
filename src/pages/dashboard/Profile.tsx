@@ -56,7 +56,7 @@ const Profile = () => {
         .eq("membre_id", membre.id);
 
       if (error) throw error;
-      return data?.map((mr: any) => mr.role) || [];
+      return data?.map((mr: unknown) => mr.role) || [];
     },
     enabled: !!user?.id,
   });
@@ -411,7 +411,7 @@ const Profile = () => {
                 <p className="text-sm font-medium text-muted-foreground mb-2">Rôles</p>
                 <div className="flex flex-wrap gap-2">
                   {userRoles.length > 0 ? (
-                    userRoles.map((role: any) => (
+                    userRoles.map((role: unknown) => (
                       <Badge key={role.id} variant="secondary">
                         {role.name}
                       </Badge>
@@ -437,7 +437,7 @@ const Profile = () => {
                 <p className="text-sm text-muted-foreground">Aucun historique</p>
               ) : (
                 <div className="space-y-3">
-                  {connexionHistory.map((connexion: any) => (
+                  {connexionHistory.map((connexion: unknown) => (
                     <div
                       key={connexion.id}
                       className="flex items-center justify-between text-sm"

@@ -131,7 +131,7 @@ export function useAlertesGlobales() {
   const alertes: Alerte[] = [];
 
   // Alertes prêts en retard
-  pretsRetard.forEach((pret: any) => {
+  pretsRetard.forEach((pret: unknown) => {
     const joursRetard = Math.floor(
       (new Date().getTime() - new Date(pret.echeance).getTime()) / (1000 * 60 * 60 * 24)
     );
@@ -158,7 +158,7 @@ export function useAlertesGlobales() {
   // sur `reunions_sanctions`). `formatFCFA(Number(montant_amende ?? 0))`
   // affiche désormais le montant réel de l'amende au lieu de "NaN FCFA" /
   // "0 FCFA" systématique.
-  sanctionsImpayees.forEach((sanction: any) => {
+  sanctionsImpayees.forEach((sanction: unknown) => {
     const montantAmende = Number(sanction.montant_amende ?? 0);
     alertes.push({
       id: `sanction-${sanction.id}`,
@@ -190,7 +190,7 @@ export function useAlertesGlobales() {
   }
 
   // Alertes réunions proches
-  reunionsProches.forEach((reunion: any) => {
+  reunionsProches.forEach((reunion: unknown) => {
     const dateReunion = new Date(reunion.date_reunion);
     const joursRestants = Math.ceil(
       (dateReunion.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)

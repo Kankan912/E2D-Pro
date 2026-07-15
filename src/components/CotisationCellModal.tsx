@@ -105,7 +105,7 @@ export default function CotisationCellModal({
       });
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Erreur",
         description: error.message,
@@ -131,7 +131,7 @@ export default function CotisationCellModal({
       });
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Erreur",
         description: error.message,

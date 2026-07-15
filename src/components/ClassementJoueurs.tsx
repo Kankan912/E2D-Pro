@@ -11,8 +11,7 @@ export default function ClassementJoueurs() {
     queryKey: ['classement-general-joueurs'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('membres')
-        .select('*')
+        .from('membres').select('id, user_id, profile_id, nom, prenom, telephone, email, photo_url, fonction, equipe, statut, association_id, created_at, updated_at')
         .eq('equipe_phoenix', 'true')
         .eq('statut', 'actif')
         .order('nom');
@@ -25,7 +24,7 @@ export default function ClassementJoueurs() {
   const equipeJaune = adherents?.filter(a => a.equipe_jaune_rouge === 'jaune') || [];
   const equipeRouge = adherents?.filter(a => a.equipe_jaune_rouge === 'rouge') || [];
 
-  const TableauClassement = ({ joueurs, equipe }: { joueurs: any[], equipe: string }) => (
+  const TableauClassement = ({ joueurs, equipe }: { joueurs: unknown[], equipe: string }) => (
     <Table>
       <TableHeader>
         <TableRow>

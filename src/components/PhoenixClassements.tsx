@@ -9,7 +9,7 @@ import { Trophy, Target, Medal, Users } from "lucide-react";
 import { useAssociation } from "@/hooks/useAssociation";
 
 // Task 20 — Phase 3-e Fix 5 :
-// Le composant était un placeholder (`const stats: any[] = []`, commentaire
+// Le composant était un placeholder (`const stats: unknown[] = []`, commentaire
 // "Table phoenix_matchs à créer") avec colonnes Buts/Passes/Matchs toutes
 // vides (`-`). Or la table `sport_phoenix_matchs` existe bien (migration
 // `20251126102120` via types générés — Row: id, date_match, equipe_adverse,

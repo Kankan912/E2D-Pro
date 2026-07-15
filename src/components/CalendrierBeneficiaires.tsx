@@ -25,8 +25,7 @@ export default function CalendrierBeneficiaires() {
     queryKey: ['reunions-beneficiaires'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('reunions')
-        .select('*')
+        .from('reunions').select('id, date_reunion, type_reunion, sujet, ordre_du_jour, statut, association_id, created_at, updated_at')
         .order('date_reunion', { ascending: false });
       
       if (error) throw error;
@@ -73,11 +72,11 @@ export default function CalendrierBeneficiaires() {
 
   const stats = {
     total: beneficiaires.length,
-    paye: beneficiaires.filter((b: any) => b.statut === 'paye').length,
-    montantTotal: beneficiaires.reduce((sum: number, b: any) => sum + b.montant_benefice, 0),
+    paye: beneficiaires.filter((b: unknown) => b.statut === 'paye').length,
+    montantTotal: beneficiaires.reduce((sum: number, b: unknown) => sum + b.montant_benefice, 0),
     montantPaye: beneficiaires
-      .filter((b: any) => b.statut === 'paye')
-      .reduce((sum: number, b: any) => sum + b.montant_benefice, 0)
+      .filter((b: unknown) => b.statut === 'paye')
+      .reduce((sum: number, b: unknown) => sum + b.montant_benefice, 0)
   };
 
   const reunionDates = reunions?.map(r => new Date(r.date_reunion)) || [];
@@ -182,7 +181,7 @@ export default function CalendrierBeneficiaires() {
                     Aucun bénéficiaire pour {selectedYear}
                   </p>
                 ) : (
-                  beneficiaires.map((beneficiaire: any) => (
+                  beneficiaires.map((beneficiaire: unknown) => (
                     <Card key={beneficiaire.id}>
                       <CardContent className="p-4">
                         <div className="flex justify-between items-start">

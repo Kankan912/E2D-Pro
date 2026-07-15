@@ -143,7 +143,7 @@ export default function CompteRenduActions({ reunion, onSuccess }: CompteRenduAc
 
       // Préparer le contenu du CR
       const contenuCR = comptesRendus
-        ?.map((cr: any, index: number) =>
+        ?.map((cr: unknown, index: number) =>
           `${index + 1}. ${cr.sujet}\n   Résolution: ${cr.resolution || 'Aucune résolution'}`
         )
         .join('\n\n') || 'Aucun point à l\'ordre du jour';
@@ -325,7 +325,7 @@ export default function CompteRenduActions({ reunion, onSuccess }: CompteRenduAc
             <CardContent>
               <ScrollArea className="h-32">
                 <div className="text-sm space-y-2 whitespace-pre-wrap">
-                  {comptesRendus?.map((cr: any, index: number) => (
+                  {comptesRendus?.map((cr: unknown, index: number) => (
                     <div key={cr.id} className="border-l-2 border-primary pl-3">
                       <p className="font-medium">
                         Point {index + 1}: {cr.sujet}

@@ -43,7 +43,7 @@ const Partners = () => {
         {/* Partners Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 mb-16">
           {partners && partners.length > 0 ? (
-            partners.map((partner: any) => (
+            partners.map((partner: unknown) => (
               <a
                 key={partner.id}
                 href={partner.site_web || "#"}

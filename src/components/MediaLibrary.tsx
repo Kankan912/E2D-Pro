@@ -54,7 +54,7 @@ interface MediaFile {
   name: string;
   id: string;
   created_at: string;
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
   url: string;
 }
 
@@ -143,7 +143,7 @@ export const MediaLibrary = ({
       toast.success("Fichier uploadé avec succès");
       queryClient.invalidateQueries({ queryKey: ["media-library", selectedBucket] });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast.error(`Erreur lors de l'upload: ${error.message}`);
     },
   });
@@ -163,7 +163,7 @@ export const MediaLibrary = ({
       setSelectedFile(null);
       setPreviewOpen(false);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast.error(`Erreur lors de la suppression: ${error.message}`);
     },
   });

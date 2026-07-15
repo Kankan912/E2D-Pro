@@ -107,8 +107,7 @@ export default function NotificationsAdmin({ embedded = false }: NotificationsAd
     queryKey: ["notifications-triggers"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("configurations")
-        .select("*")
+        .from('configurations').select('cle, valeur, description, created_at, updated_at')
         .like("cle", "trigger_%");
       if (error) throw error;
       // Convertir en map pour un accès facile
@@ -127,7 +126,7 @@ export default function NotificationsAdmin({ embedded = false }: NotificationsAd
   });
 
   const createCampagne = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: unknown) => {
       const { error } = await supabase.from('notifications_campagnes').insert(data);
       if (error) throw error;
     },

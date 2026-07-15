@@ -42,7 +42,7 @@ export default function SportE2D() {
   const navigate = useNavigate();
   const [showMatchForm, setShowMatchForm] = useState(false);
   const [showMatchEditForm, setShowMatchEditForm] = useState(false);
-  const [selectedMatch, setSelectedMatch] = useState<any>(null);
+  const [selectedMatch, setSelectedMatch] = useState<unknown>(null);
   const [showMatchDetails, setShowMatchDetails] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const queryClient = useQueryClient();

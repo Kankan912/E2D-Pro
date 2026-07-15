@@ -30,8 +30,7 @@ export default function PhoenixPresencesManager() {
     queryKey: ['phoenix-adherents'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('membres')
-        .select('*')
+        .from('membres').select('id, user_id, profile_id, nom, prenom, telephone, email, photo_url, fonction, equipe, statut, association_id, created_at, updated_at')
         .eq('est_adherent_phoenix', true)
         .eq('statut', 'actif')
         .order('nom');
@@ -56,7 +55,7 @@ export default function PhoenixPresencesManager() {
 
   const savePresence = useMutation({
     mutationFn: async ({ membreId, present, excuse }: { membreId: string; present: boolean; excuse?: string }) => {
-      const existing = presences.find((p: any) => p.membre_id === membreId);
+      const existing = presences.find((p: unknown) => p.membre_id === membreId);
 
       if (existing) {
         const { error } = await supabase
@@ -83,18 +82,18 @@ export default function PhoenixPresencesManager() {
   });
 
   const getPresenceStatus = (membreId: string) => {
-    const presence = presences.find((p: any) => p.membre_id === membreId);
+    const presence = presences.find((p: unknown) => p.membre_id === membreId);
     return presence?.present ?? null;
   };
 
   const getPresenceExcuse = (membreId: string) => {
-    const presence = presences.find((p: any) => p.membre_id === membreId);
+    const presence = presences.find((p: unknown) => p.membre_id === membreId);
     return presence?.excuse || "";
   };
 
   const selectedEntrainement = entrainements?.find(e => e.id === selectedEntrainementId);
-  const presentsCount = presences.filter((p: any) => p.present).length;
-  const absentsCount = presences.filter((p: any) => !p.present).length;
+  const presentsCount = presences.filter((p: unknown) => p.present).length;
+  const absentsCount = presences.filter((p: unknown) => !p.present).length;
 
   return (
     <div className="space-y-6">

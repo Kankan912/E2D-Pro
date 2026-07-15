@@ -492,7 +492,7 @@ export function useBeneficiairesReunion(
 
       // FUN-02: Check for audit insert error
       if (auditError) {
-        console.error("Audit log insert failed:", auditError.message);
+        logger.error("Audit log insert failed:", auditError.message);
         // Non-blocking: audit failure should not prevent the main operation
       }
 
@@ -577,7 +577,7 @@ export function useBeneficiairesReunion(
 
         // FUN-02: Check for audit insert error
         if (auditError) {
-          console.error("Audit log insert failed:", auditError.message);
+          logger.error("Audit log insert failed:", auditError.message);
           // Non-blocking: audit failure should not prevent the main operation
         }
       }

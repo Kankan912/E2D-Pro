@@ -143,7 +143,7 @@ export function CotisationsMembresManager() {
       queryClient.invalidateQueries({ queryKey: ['cotisations-membres-config', selectedExerciceId] });
       setModifiedMontants({});
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({ 
         title: "Erreur lors de la sauvegarde", 
         description: error.message,

@@ -45,7 +45,7 @@ export default function StatsAdmin() {
         supabase.from('sport_phoenix_matchs').select('score_phoenix, score_adverse').gte('date_match', `${selectedYear}-01-01`).lte('date_match', `${selectedYear}-12-31`).eq('statut', 'termine'),
       ]);
 
-      const computeStats = (matchs: any[], scoreKey: string) => {
+      const computeStats = (matchs: unknown[], scoreKey: string) => {
         let victoires = 0, nuls = 0, defaites = 0, butsMarques = 0;
         matchs?.forEach(m => {
           const score = m[scoreKey] ?? 0;
@@ -79,21 +79,21 @@ export default function StatsAdmin() {
   const getMoisData = () => {
     const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
     return mois.map((m, i) => {
-      const cotisationsMois = stats.cotisations?.filter((c: any) => 
+      const cotisationsMois = stats.cotisations?.filter((c: unknown) => 
         new Date(c.date_paiement).getMonth() === i
-      ).reduce((sum: number, c: any) => sum + parseFloat(c.montant), 0) || 0;
+      ).reduce((sum: number, c: unknown) => sum + parseFloat(c.montant), 0) || 0;
       
-      const epargnesMois = stats.epargnes?.filter((e: any) => 
+      const epargnesMois = stats.epargnes?.filter((e: unknown) => 
         new Date(e.date_depot).getMonth() === i
-      ).reduce((sum: number, e: any) => sum + parseFloat(e.montant), 0) || 0;
+      ).reduce((sum: number, e: unknown) => sum + parseFloat(e.montant), 0) || 0;
 
       return { mois: m, cotisations: cotisationsMois, epargnes: epargnesMois };
     });
   };
 
   const getRevenusData = () => {
-    const totalCotisations = stats.cotisations?.reduce((sum: number, c: any) => sum + parseFloat(c.montant), 0) || 0;
-    const totalEpargnes = stats.epargnes?.reduce((sum: number, e: any) => sum + parseFloat(e.montant), 0) || 0;
+    const totalCotisations = stats.cotisations?.reduce((sum: number, c: unknown) => sum + parseFloat(c.montant), 0) || 0;
+    const totalEpargnes = stats.epargnes?.reduce((sum: number, e: unknown) => sum + parseFloat(e.montant), 0) || 0;
     return [
       { nom: 'Cotisations', valeur: totalCotisations },
       { nom: 'Épargnes', valeur: totalEpargnes },
@@ -190,11 +190,11 @@ export default function StatsAdmin() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-3 border rounded">
                   <span className="font-medium">Cotisations</span>
-                  <span className="text-lg font-bold">{formatFCFA(stats.cotisations?.reduce((sum: number, c: any) => sum + parseFloat(c.montant), 0) || 0)}</span>
+                  <span className="text-lg font-bold">{formatFCFA(stats.cotisations?.reduce((sum: number, c: unknown) => sum + parseFloat(c.montant), 0) || 0)}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 border rounded">
                   <span className="font-medium">Épargnes</span>
-                  <span className="text-lg font-bold">{formatFCFA(stats.epargnes?.reduce((sum: number, e: any) => sum + parseFloat(e.montant), 0) || 0)}</span>
+                  <span className="text-lg font-bold">{formatFCFA(stats.epargnes?.reduce((sum: number, e: unknown) => sum + parseFloat(e.montant), 0) || 0)}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 border rounded">
                   <span className="font-medium">Donations</span>
@@ -203,7 +203,7 @@ export default function StatsAdmin() {
                 <div className="flex items-center justify-between p-3 border rounded bg-primary/10">
                   <span className="font-bold">TOTAL</span>
                   <span className="text-xl font-bold">
-                    {formatFCFA((stats.cotisations?.reduce((sum: number, c: any) => sum + parseFloat(c.montant), 0) || 0) + (stats.epargnes?.reduce((sum: number, e: any) => sum + parseFloat(e.montant), 0) || 0) + stats.donations)}
+                    {formatFCFA((stats.cotisations?.reduce((sum: number, c: unknown) => sum + parseFloat(c.montant), 0) || 0) + (stats.epargnes?.reduce((sum: number, e: unknown) => sum + parseFloat(e.montant), 0) || 0) + stats.donations)}
                   </span>
                 </div>
               </div>

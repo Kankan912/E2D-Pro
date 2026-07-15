@@ -208,7 +208,7 @@ export default function CotisationsGridView({ reunionId, exerciceId, isEditable 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['huile-savon-reunion', reunionId] });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Erreur",
         description: error.message,

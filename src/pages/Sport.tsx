@@ -313,7 +313,7 @@ export default function Sport() {
             <Button
               variant="outline"
               className="h-20 flex-col gap-2"
-              onClick={() => {}}
+              onClick={() => window.location.href = "/dashboard/admin/sport"}
             >
               <Gauge className="w-6 h-6" />
               <span className="text-sm">Dashboard Temps Réel</span>
@@ -321,7 +321,7 @@ export default function Sport() {
             <Button
               variant="outline"
               className="h-20 flex-col gap-2"
-              onClick={() => {}}
+              onClick={() => window.location.href = "/dashboard/admin/sport"}
             >
               <TrendingUp className="w-6 h-6" />
               <span className="text-sm">Statistiques Globales</span>
@@ -329,7 +329,7 @@ export default function Sport() {
             <Button
               variant="outline"
               className="h-20 flex-col gap-2"
-              onClick={() => {}}
+              onClick={() => window.location.href = "/dashboard/admin/sport"}
             >
               <Calendar className="w-6 h-6" />
               <span className="text-sm">Calendrier Unifié</span>

@@ -18,9 +18,9 @@ import { StatCard } from "@/components/admin/StatCard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 export default function RolesAdmin() {
   const { roles, isLoading, useUsersWithRoles, assignRole, removeRole } = useRoles();
-  const [selectedRole, setSelectedRole] = useState<any>(null);
+  const [selectedRole, setSelectedRole] = useState<unknown>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<unknown>(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedRoleToAssign, setSelectedRoleToAssign] = useState<string>("");
   const [roleToDelete, setRoleToDelete] = useState<{userId: string; roleId: string; roleName: string; userName: string} | null>(null);
@@ -31,7 +31,7 @@ export default function RolesAdmin() {
   const users = (usersData as Array<{ user_id: string; role_id: string | null; profiles: Record<string, string | null>; roles: { id: string; name: string; description: string | null } | null }>) || [];
 
   // Filter users based on search query
-  const filteredUsers = users.filter((user: any) => {
+  const filteredUsers = users.filter((user: unknown) => {
     const fullName = `${user.profiles?.prenom || ''} ${user.profiles?.nom || ''}`.toLowerCase();
     const phone = user.profiles?.telephone || '';
     return fullName.includes(searchQuery.toLowerCase()) || phone.includes(searchQuery);
@@ -39,11 +39,11 @@ export default function RolesAdmin() {
 
   // Calculate statistics
   const totalUsers = users.length;
-  const usersWithRolesCount = users.filter((u: any) => u.roles?.name).length;
+  const usersWithRolesCount = users.filter((u: unknown) => u.roles?.name).length;
   const usersWithoutRoles = totalUsers - usersWithRolesCount;
 
   // Get role distribution
-  const roleDistribution = users.reduce((acc: Record<string, number>, user: any) => {
+  const roleDistribution = users.reduce((acc: Record<string, number>, user: unknown) => {
     if (user.roles?.name) {
       acc[user.roles.name] = (acc[user.roles.name] || 0) + 1;
     }

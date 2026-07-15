@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Download, Upload, History, FileJson, FileSpreadsheet, Loader2, Check } from "lucide-react";
-import * as XLSX from "xlsx";
+// exceljs available via @/lib/excel-export
 import { format } from "date-fns";
 
 import { getErrorMessage } from "@/lib/errors";

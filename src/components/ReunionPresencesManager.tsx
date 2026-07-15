@@ -166,7 +166,7 @@ export default function ReunionPresencesManager({ reunionId }: ReunionPresencesM
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reunion-presences', reunionId] });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Erreur",
         description: error.message,

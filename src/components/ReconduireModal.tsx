@@ -8,7 +8,7 @@ import { RefreshCw, AlertTriangle, Info, CheckCircle } from "lucide-react";
 import { formatFCFA } from "@/lib/utils";
 
 interface ReconduireModalProps {
-  pret: any;
+  pret: unknown;
   maxReconductions: number;
   dureeReconduction: number;
   soldeRestant: number; // Non utilisé - on calcule sur capital restant

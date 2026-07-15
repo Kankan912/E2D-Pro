@@ -12,7 +12,8 @@ export default tseslint.config(
       "node_modules",
       "playwright-report",
       "test-results",
-      "src/integrations/supabase/types.ts", // auto-generated
+      "src/integrations/supabase/types.ts",
+      "supabase/functions/**",
       "bun.lock",
     ],
   },
@@ -22,6 +23,10 @@ export default tseslint.config(
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+    },
+    plugins: {
+      "react-hooks": reactHooks,
+      "react-refresh": reactRefresh,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -37,7 +42,7 @@ export default tseslint.config(
           caughtErrorsIgnorePattern: "^_",
         },
       ],
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "off",
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "no-debugger": "error",
       "prefer-const": "error",

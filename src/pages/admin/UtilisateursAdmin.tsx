@@ -605,7 +605,7 @@ export default function UtilisateursAdmin({ embedded = false }: UtilisateursAdmi
                 </h3>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {userConnections && userConnections.length > 0 ? (
-                    userConnections.map((conn: any) => (
+                    userConnections.map((conn: unknown) => (
                       <div
                         key={conn.id}
                         className="flex justify-between items-center p-2 bg-muted rounded text-sm"

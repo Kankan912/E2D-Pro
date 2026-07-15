@@ -438,7 +438,7 @@ export const useCaisseDetails = (type: DetailType | null, enabled: boolean) => {
             .order('date_operation', { ascending: false })
             .limit(100);
           if (error) throw error;
-          return (data || []).map((op: any) => ({
+          return (data || []).map((op: unknown) => ({
             id: op.id, date: op.date_operation, libelle: op.libelle,
             montant: op.type_operation === 'sortie' ? -op.montant : op.montant,
             type: op.type_operation, categorie: op.categorie,
@@ -458,7 +458,7 @@ export const useCaisseDetails = (type: DetailType | null, enabled: boolean) => {
             .order('date_operation', { ascending: false })
             .limit(100);
           if (error) throw error;
-          return (data || []).map((op: any) => ({
+          return (data || []).map((op: unknown) => ({
             id: op.id, date: op.date_operation, libelle: op.libelle, montant: op.montant,
             membre_nom: op.beneficiaire ? `${op.beneficiaire.prenom} ${op.beneficiaire.nom}` : undefined,
             notes: op.notes
@@ -473,7 +473,7 @@ export const useCaisseDetails = (type: DetailType | null, enabled: boolean) => {
             .order('date_operation', { ascending: false })
             .limit(100);
           if (error) throw error;
-          return (data || []).map((op: any) => ({
+          return (data || []).map((op: unknown) => ({
             id: op.id, date: op.date_operation, libelle: op.libelle, montant: op.montant,
             membre_nom: op.beneficiaire ? `${op.beneficiaire.prenom} ${op.beneficiaire.nom}` : undefined
           }));
@@ -487,7 +487,7 @@ export const useCaisseDetails = (type: DetailType | null, enabled: boolean) => {
             .order('date_pret', { ascending: false })
             .limit(200);
           if (error) throw error;
-          return (data || []).map((pret: any) => ({
+          return (data || []).map((pret: unknown) => ({
             id: pret.id, date: pret.date_pret,
             libelle: `Prêt - Échéance: ${new Date(pret.echeance).toLocaleDateString('fr-FR')}`,
             montant: pret.montant - (pret.montant_paye || 0),
@@ -504,7 +504,7 @@ export const useCaisseDetails = (type: DetailType | null, enabled: boolean) => {
             .order('created_at', { ascending: false })
             .limit(200);
           if (error) throw error;
-          return (data || []).map((s: any) => ({
+          return (data || []).map((s: unknown) => ({
             id: s.id, date: s.created_at, libelle: s.motif || 'Sanction',
             montant: s.montant_amende || 0, type: s.statut,
             membre_nom: s.membre ? `${s.membre.prenom} ${s.membre.nom}` : undefined
@@ -532,7 +532,7 @@ export const useCaisseDetails = (type: DetailType | null, enabled: boolean) => {
             .order('date_operation', { ascending: false })
             .limit(100);
           if (error) throw error;
-          return (data || []).map((op: any) => ({
+          return (data || []).map((op: unknown) => ({
             id: op.id, date: op.date_operation, libelle: op.libelle,
             montant: op.type_operation === 'sortie' ? -op.montant : op.montant,
             type: op.type_operation

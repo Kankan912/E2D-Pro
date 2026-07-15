@@ -22,8 +22,7 @@ export function useMatchMedias(matchId: string) {
     queryKey: ['match-medias', matchId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('match_medias')
-        .select('*')
+        .from('match_medias').select('id, match_id, url, type, legende, created_at')
         .eq('match_id', matchId)
         .order('ordre', { ascending: true });
 

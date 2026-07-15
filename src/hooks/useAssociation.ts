@@ -6,7 +6,7 @@ import { useSyncExternalStore } from "react";
 
 export function useAssociation() {
   const { profile, loading } = useAuth();
-  const isSuperAdmin = (profile as any)?.role === 'super_admin' || false;
+  const isSuperAdmin = (profile as unknown)?.role === 'super_admin' || false;
   const storedId = useSyncExternalStore(subscribe, getActiveAssociationId);
 
   const { data: associations } = useQuery({
@@ -18,7 +18,7 @@ export function useAssociation() {
     enabled: isSuperAdmin,
   });
 
-  const profileAssocId = (profile as any)?.association_id ?? null;
+  const profileAssocId = (profile as unknown)?.association_id ?? null;
   const associationId = isSuperAdmin
     ? (storedId ?? associations?.[0]?.id ?? null)
     : profileAssocId;

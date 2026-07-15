@@ -91,8 +91,7 @@ export const useCotisationsTypes = () => {
     queryKey: ['cotisations-types'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('cotisations_types')
-        .select('*')
+        .from('cotisations_types').select('id, nom, description, montant_defaut, obligatoire, association_id, created_at')
         .order('nom');
 
       if (error) throw error;
@@ -237,8 +236,7 @@ export const useExercices = () => {
     queryKey: ['exercices', associationId],
     queryFn: async () => {
       let query = supabase
-        .from('exercices')
-        .select('*')
+        .from('exercices').select('id, nom, date_debut, date_fin, statut, association_id, created_at')
         .order('date_debut', { ascending: false });
 
       const { data, error } = await query;

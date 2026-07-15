@@ -30,7 +30,7 @@ export default function PhoenixMatchDetails() {
 
   const selectedMatch = matchs?.find(m => m.id === selectedMatchId);
 
-  const getResultat = (match: any) => {
+  const getResultat = (match: unknown) => {
     if (match.score_phoenix === null || match.score_adverse === null) return null;
     if (match.score_phoenix > match.score_adverse) return 'Victoire';
     if (match.score_phoenix < match.score_adverse) return 'Défaite';

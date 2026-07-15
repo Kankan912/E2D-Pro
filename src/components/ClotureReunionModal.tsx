@@ -168,15 +168,15 @@ export default function ClotureReunionModal({
   const nbCotisations = cotisationsReunion?.length || 0;
 
   // Bénéficiaires impayés
-  const beneficiairesImpayes = beneficiairesReunion?.filter((b: any) => b.statut !== 'paye') || [];
-  const totalBeneficiairesImpayes = beneficiairesImpayes.reduce((sum: number, b: any) => sum + (b.montant_final || 0), 0);
+  const beneficiairesImpayes = beneficiairesReunion?.filter((b: unknown) => b.statut !== 'paye') || [];
+  const totalBeneficiairesImpayes = beneficiairesImpayes.reduce((sum: number, b: unknown) => sum + (b.montant_final || 0), 0);
 
   // Check cohérence : membres présents sans aucune cotisation
   const membresPresentsIds = presences?.filter(p => p.statut_presence === 'present').map(p => p.membre_id) || [];
   const membresAvecCotisation = new Set(cotisationsReunion?.map(c => c.membre_id) || []);
   const membresPresentsSansCotisation = presences
     ?.filter(p => p.statut_presence === 'present' && !membresAvecCotisation.has(p.membre_id))
-    .map((p: any) => ({
+    .map((p: unknown) => ({
       id: p.membre_id,
       nom: p.membres?.nom,
       prenom: p.membres?.prenom
@@ -269,8 +269,8 @@ export default function ClotureReunionModal({
 
       // Formater les destinataires comme attendu par l'edge function
       const destinataires = presentsData
-        ?.filter((p: any) => p.membres?.email)
-        .map((p: any) => ({
+        ?.filter((p: unknown) => p.membres?.email)
+        .map((p: unknown) => ({
           email: p.membres.email,
           nom: p.membres.nom,
           prenom: p.membres.prenom
@@ -287,20 +287,20 @@ export default function ClotureReunionModal({
 
       // === ÉTAPE 5: Préparer et envoyer le compte-rendu par email ===
       const contenuCR = comptesRendus
-        ?.map((cr: any, index: number) =>
+        ?.map((cr: unknown, index: number) =>
           `${index + 1}. ${cr.sujet}\n   ${cr.resolution || 'Aucune résolution'}`
         )
         .join('\n\n') || 'Aucun point à l\'ordre du jour';
 
       // Préparer les données de présences pour l'email
-      const presentsNoms = presentsData?.map((p: any) => `${p.membres?.prenom} ${p.membres?.nom}`).filter(Boolean) || [];
+      const presentsNoms = presentsData?.map((p: unknown) => `${p.membres?.prenom} ${p.membres?.nom}`).filter(Boolean) || [];
       
       const { data: excusesData } = await supabase
         .from('reunions_presences')
         .select('membres:membre_id (nom, prenom)')
         .eq('reunion_id', reunionId)
         .eq('statut_presence', 'absent_excuse');
-      const excusesNoms = excusesData?.map((p: any) => `${p.membres?.prenom} ${p.membres?.nom}`).filter(Boolean) || [];
+      const excusesNoms = excusesData?.map((p: unknown) => `${p.membres?.prenom} ${p.membres?.nom}`).filter(Boolean) || [];
       
       const absentsNonExcusesNoms = tousAbsentsNonExcuses?.length 
         ? membresE2D?.filter(m => tousAbsentsNonExcuses.some(a => a.membre_id === m.id))
@@ -313,7 +313,7 @@ export default function ClotureReunionModal({
         .eq('reunion_id', reunionId)
         .eq('statut_presence', 'present')
         .not('heure_arrivee', 'is', null);
-      const retardsNoms = retardsData?.map((p: any) => `${p.membres?.prenom} ${p.membres?.nom}`).filter(Boolean) || [];
+      const retardsNoms = retardsData?.map((p: unknown) => `${p.membres?.prenom} ${p.membres?.nom}`).filter(Boolean) || [];
 
       const totalMembresCalcul = presentsNoms.length + excusesNoms.length + absentsNonExcusesNoms.length;
       const tauxPresenceEmail = totalMembresCalcul > 0 ? Math.round((presentsNoms.length / totalMembresCalcul) * 100) : 0;
@@ -350,8 +350,8 @@ export default function ClotureReunionModal({
         },
         beneficiaires: beneficiairesData && beneficiairesData.length > 0 ? {
           count: beneficiairesData.length,
-          total: beneficiairesData.reduce((sum: number, b: any) => sum + (b.montant_final || 0), 0),
-          details: beneficiairesData.map((b: any) => ({
+          total: beneficiairesData.reduce((sum: number, b: unknown) => sum + (b.montant_final || 0), 0),
+          details: beneficiairesData.map((b: unknown) => ({
             nom: `${b.membres?.prenom} ${b.membres?.nom}`,
             montant: b.montant_final || 0,
             statut: b.statut
@@ -562,10 +562,10 @@ export default function ClotureReunionModal({
                   </div>
                   <div className="text-right">
                     <span className="font-bold text-primary">
-                      {beneficiairesReunion.reduce((sum: number, b: any) => sum + (b.montant_final || 0), 0).toLocaleString()} FCFA
+                      {beneficiairesReunion.reduce((sum: number, b: unknown) => sum + (b.montant_final || 0), 0).toLocaleString()} FCFA
                     </span>
                     <span className="text-xs text-muted-foreground ml-1">
-                      ({beneficiairesReunion.filter((b: any) => b.statut === 'paye').length}/{beneficiairesReunion.length} payé)
+                      ({beneficiairesReunion.filter((b: unknown) => b.statut === 'paye').length}/{beneficiairesReunion.length} payé)
                     </span>
                   </div>
                 </div>
@@ -611,7 +611,7 @@ export default function ClotureReunionModal({
                       Montant total impayé: <strong>{totalBeneficiairesImpayes.toLocaleString()} FCFA</strong>
                     </p>
                     <div className="mt-2 text-xs text-muted-foreground">
-                      {beneficiairesImpayes.map((b: any) => 
+                      {beneficiairesImpayes.map((b: unknown) => 
                         `${b.membres?.prenom} ${b.membres?.nom}`
                       ).join(', ')}
                     </div>
@@ -655,7 +655,7 @@ export default function ClotureReunionModal({
               <CardContent>
                 <ScrollArea className="h-24">
                   <div className="space-y-2">
-                    {presences?.filter(p => p.statut_presence === 'present').map((presence: any, index: number) => (
+                    {presences?.filter(p => p.statut_presence === 'present').map((presence: unknown, index: number) => (
                       <div
                         key={index}
                         className="flex items-center justify-between p-2 rounded-lg bg-muted text-sm"

@@ -72,6 +72,7 @@ const ExportsAdmin = lazyWithRetry(() => import("./admin/ExportsAdmin"));
 const MonEtatFinancier = lazyWithRetry(() => import("./dashboard/MonEtatFinancier"));
 const CalendrierBeneficiairesMensuels = lazyWithRetry(() => import("./admin/CalendrierBeneficiairesMensuels"));
 const ConfigCotisationsExercice = lazyWithRetry(() => import("./admin/ConfigCotisationsExercice"));
+const AssociationsAdmin = lazyWithRetry(() => import("./admin/AssociationsAdmin"));
 
 // Admin Pages - Site CMS
 const HeroAdmin = lazyWithRetry(() => import("./admin/site/HeroAdmin"));
@@ -184,6 +185,7 @@ const Dashboard = () => {
           <Route path="/my-financial-status" element={<ErrorBoundary fallbackTitle="Erreur - Mon État Financier"><MonEtatFinancier /></ErrorBoundary>} />
           <Route path="/admin/calendrier-beneficiaires" element={<PermissionRoute resource="cotisations" permission="read"><ErrorBoundary fallbackTitle="Erreur - Calendrier Bénéficiaires"><CalendrierBeneficiairesMensuels /></ErrorBoundary></PermissionRoute>} />
           <Route path="/admin/config-cotisations" element={<PermissionRoute resource="config" permission="write"><ErrorBoundary fallbackTitle="Erreur - Config Cotisations"><ConfigCotisationsExercice /></ErrorBoundary></PermissionRoute>} />
+          <Route path="/admin/associations" element={<PermissionRoute resource="config" permission="write"><ErrorBoundary fallbackTitle="Erreur - Associations"><AssociationsAdmin /></ErrorBoundary></PermissionRoute>} />
         </Routes>
       </Suspense>
     </DashboardLayout>

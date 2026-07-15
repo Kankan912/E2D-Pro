@@ -58,7 +58,7 @@ const Hero = () => {
             }}
           >
             <CarouselContent className="ml-0 h-full">
-              {heroImages.map((image: any) => (
+              {heroImages.map((image: unknown) => (
                 <CarouselItem key={image.id} className="pl-0 h-screen">
                   <div
                     className="w-full h-full"

@@ -23,7 +23,7 @@ export default function MatchStatsForm({ matchId, matchType = 'phoenix' }: Match
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingStats, setEditingStats] = useState<any>(null);
+  const [editingStats, setEditingStats] = useState<unknown>(null);
   
   // Form state
   const [selectedPlayer, setSelectedPlayer] = useState("");
@@ -76,7 +76,7 @@ export default function MatchStatsForm({ matchId, matchType = 'phoenix' }: Match
 
   // Mutation pour ajouter/modifier des stats
   const saveStats = useMutation({
-    mutationFn: async (statsData: any) => {
+    mutationFn: async (statsData: unknown) => {
       if (editingStats) {
         const { error } = await supabase
           .from('match_statistics')
@@ -135,7 +135,7 @@ export default function MatchStatsForm({ matchId, matchType = 'phoenix' }: Match
     setIsFormOpen(false);
   };
 
-  const openEditForm = (stats: any) => {
+  const openEditForm = (stats: unknown) => {
     setEditingStats(stats);
     setSelectedPlayer(stats.player_name);
     setGoals(String(stats.goals || 0));

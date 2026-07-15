@@ -51,7 +51,7 @@ export function CotisationsClotureExerciceCheck({ exerciceId }: CotisationsClotu
           .eq("exercice_id", exerciceId)
           .eq("actif", true);
         if (error) throw error;
-        return ((data || []).map((d: any) => d.cotisations_types).filter(Boolean)) as TypeCotisation[];
+        return ((data || []).map((d: unknown) => d.cotisations_types).filter(Boolean)) as TypeCotisation[];
       }
       const { data, error } = await supabase
         .from("cotisations_types")

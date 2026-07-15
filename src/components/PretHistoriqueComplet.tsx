@@ -16,9 +16,9 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
 interface PretHistoriqueCompletProps {
-  pret: any;
-  paiements: any[];
-  reconductions: any[];
+  pret: unknown;
+  paiements: unknown[];
+  reconductions: unknown[];
 }
 
 interface HistoryEvent {

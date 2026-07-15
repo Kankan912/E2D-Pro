@@ -48,10 +48,10 @@ const Gallery = () => {
         {/* Albums Grid */}
         {albums && albums.length > 0 ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {albums.map((album: any) => {
-              const albumItemsCount = galleryItems?.filter((item: any) => item.album_id === album.id).length || 0;
+            {albums.map((album: unknown) => {
+              const albumItemsCount = galleryItems?.filter((item: unknown) => item.album_id === album.id).length || 0;
               const coverImage = album.cover_image_url ||
-                                galleryItems?.find((item: any) => item.album_id === album.id)?.image_url;
+                                galleryItems?.find((item: unknown) => item.album_id === album.id)?.image_url;
 
               return (
                 <div

@@ -38,7 +38,7 @@ export default function BeneficiairesReunionWidget({
   const [selectedCalendrierId, setSelectedCalendrierId] = useState<string>("");
   const [selectedBeneficiaireId, setSelectedBeneficiaireId] = useState<string>("");
   const [paymentNotes, setPaymentNotes] = useState("");
-  const [calculatedData, setCalculatedData] = useState<any>(null);
+  const [calculatedData, setCalculatedData] = useState<unknown>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   
   const { user } = useAuth();
@@ -187,7 +187,7 @@ export default function BeneficiairesReunionWidget({
           {/* Liste des bénéficiaires assignés */}
           {beneficiaires.length > 0 ? (
             <div className="space-y-3">
-              {beneficiaires.map((benef: any) => {
+              {beneficiaires.map((benef: unknown) => {
                 // Calculer le délai depuis l'assignation
                 const joursDepuisAssignation = benef.created_at 
                   ? Math.floor((Date.now() - new Date(benef.created_at).getTime()) / (1000 * 60 * 60 * 24))
@@ -280,7 +280,7 @@ export default function BeneficiairesReunionWidget({
             <div className="grid grid-cols-2 gap-4 pt-2 border-t">
               <div className="text-center">
                 <p className="text-2xl font-bold text-primary">
-                  {formatFCFA(beneficiaires.reduce((sum: number, b: any) => sum + (b.montant_final || b.montant_benefice), 0))}
+                  {formatFCFA(beneficiaires.reduce((sum: number, b: unknown) => sum + (b.montant_final || b.montant_benefice), 0))}
                 </p>
                 <p className="text-xs text-muted-foreground">Total à verser</p>
               </div>
@@ -288,8 +288,8 @@ export default function BeneficiairesReunionWidget({
                 <p className="text-2xl font-bold text-success">
                   {formatFCFA(
                     beneficiaires
-                      .filter((b: any) => b.statut === 'paye')
-                      .reduce((sum: number, b: any) => sum + (b.montant_final || b.montant_benefice), 0)
+                      .filter((b: unknown) => b.statut === 'paye')
+                      .reduce((sum: number, b: unknown) => sum + (b.montant_final || b.montant_benefice), 0)
                   )}
                 </p>
                 <p className="text-xs text-muted-foreground">Déjà payé</p>

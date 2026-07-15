@@ -25,7 +25,7 @@ export default function CalendrierSportifUnifie() {
   });
 
   // Table phoenix_matchs à créer
-  const matchsPhoenix: any[] = [];
+  const matchsPhoenix: unknown[] = [];
 
   const { data: entrainements } = useQuery({
     queryKey: ['calendrier-entrainements'],

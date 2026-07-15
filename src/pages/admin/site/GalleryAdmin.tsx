@@ -36,8 +36,8 @@ export default function GalleryAdmin() {
   const [multiUploadOpen, setMultiUploadOpen] = useState(false);
   const [multiUploadAlbumId, setMultiUploadAlbumId] = useState<string | null>(null);
   const [isMultiUploading, setIsMultiUploading] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
-  const [editingAlbum, setEditingAlbum] = useState<any>(null);
+  const [editingItem, setEditingItem] = useState<unknown>(null);
+  const [editingAlbum, setEditingAlbum] = useState<unknown>(null);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string>("none");
   const [showDeleteItemConfirm, setShowDeleteItemConfirm] = useState(false);
   const [pendingDeleteItemId, setPendingDeleteItemId] = useState<string | null>(null);
@@ -107,7 +107,7 @@ export default function GalleryAdmin() {
     setEditingAlbum(null);
   };
 
-  const handleEdit = (item: any) => {
+  const handleEdit = (item: unknown) => {
     setEditingItem(item);
     setSelectedAlbumId(item.album_id || "none");
     reset({
@@ -121,7 +121,7 @@ export default function GalleryAdmin() {
     setOpen(true);
   };
 
-  const handleEditAlbum = (album: any) => {
+  const handleEditAlbum = (album: unknown) => {
     setEditingAlbum(album);
     resetAlbum({
       titre: album.titre ?? "",

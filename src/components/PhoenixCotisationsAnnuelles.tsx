@@ -28,8 +28,7 @@ export default function PhoenixCotisationsAnnuelles() {
     queryKey: ['phoenix-adherents-cotisations'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('membres')
-        .select('*')
+        .from('membres').select('id, user_id, profile_id, nom, prenom, telephone, email, photo_url, fonction, equipe, statut, association_id, created_at, updated_at')
         .eq('est_adherent_phoenix', true)
         .eq('statut', 'actif');
       

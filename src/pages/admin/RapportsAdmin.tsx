@@ -24,8 +24,7 @@ const RapportsAdmin = () => {
     queryKey: ["exercices-rapports"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("exercices")
-        .select("*")
+        .from('exercices').select('id, nom, date_debut, date_fin, statut, association_id, created_at')
         .order("date_debut", { ascending: false });
       if (error) throw error;
       return data;

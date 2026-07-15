@@ -41,8 +41,7 @@ export function EmailConfigManager() {
     queryKey: ["email-configurations"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("configurations")
-        .select("*")
+        .from('configurations').select('cle, valeur, description, created_at, updated_at')
         .in("cle", ["email_service", "app_url", "email_expediteur", "email_expediteur_nom"]);
       if (error) throw error;
       return data;
@@ -149,7 +148,7 @@ export function EmailConfigManager() {
           }
           const { error } = await supabase
             .from("smtp_config")
-            .insert(baseSmtpData as any);
+            .insert(baseSmtpData as unknown);
           if (error) throw error;
         }
       }
@@ -198,7 +197,7 @@ export function EmailConfigManager() {
           if (smtpConfigId) {
             await supabase.from("smtp_config").update(smtpData).eq("id", smtpConfigId);
           } else {
-            await supabase.from("smtp_config").insert(smtpData as any);
+            await supabase.from("smtp_config").insert(smtpData as unknown);
           }
           queryClient.invalidateQueries({ queryKey: ["smtp-config"] });
         }
@@ -223,7 +222,7 @@ export function EmailConfigManager() {
       // Si erreur non-2xx, tenter de lire le vrai message dans le corps de la réponse
       if (error && (!payload || !payload.message)) {
         try {
-          const resp = (error as any)?.context?.response;
+          const resp = (error as unknown)?.context?.response;
           if (resp && typeof resp.json === "function") {
             const body = await resp.clone().json();
             payload = { ...payload, ...body };
@@ -232,7 +231,7 @@ export function EmailConfigManager() {
       }
 
       if (error || !payload.success) {
-        const msg = payload.message || (error as any)?.message || "Échec du test";
+        const msg = payload.message || (error as unknown)?.message || "Échec du test";
         setLastTestResult({ success: false, message: msg, provider: payload.provider });
         toast.error(msg, { icon: <XCircle className="h-4 w-4 text-red-500" /> });
         return;
@@ -426,11 +425,11 @@ export function EmailConfigManager() {
                       body: { resend_api_key: resendApiKey, email_mode: "resend", email_service: "resend" }
                     });
                     if (error) {
-                      const errorMessage = (error as any)?.message || "Impossible d'enregistrer la clé";
+                      const errorMessage = (error as unknown)?.message || "Impossible d'enregistrer la clé";
                       throw new Error(errorMessage);
                     }
                     toast.success("Clé API Resend enregistrée");
-                  } catch (err: any) {
+                  } catch (err: unknown) {
                     toast.error("Erreur: " + (err.message || "Impossible d'enregistrer la clé"));
                   } finally {
                     setSavingResendKey(false);

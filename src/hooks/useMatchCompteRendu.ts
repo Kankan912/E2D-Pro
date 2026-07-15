@@ -33,8 +33,7 @@ export function useMatchCompteRendu(matchId: string) {
     queryKey: ['match-compte-rendu', matchId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('match_compte_rendus')
-        .select('*')
+        .from('match_compte_rendus').select('id, match_id, titre, contenu, created_by, created_at, updated_at')
         .eq('match_id', matchId)
         .maybeSingle();
 

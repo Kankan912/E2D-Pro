@@ -1,17 +1,15 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 
 /**
- * Vite configuration — hardened after audit (Fix #40 / P2 + #25 / P1).
+ * Vite configuration — hardened after audit.
  *
  * - `server.host` restricted to localhost (was `::` = all interfaces).
  * - `build.rollupOptions.output.manualChunks` splits heavy vendors so the
  *   initial bundle stays lean (jspdf/exceljs/recharts/Radix in separate chunks).
  * - `build.sourcemap` enabled for Sentry stack traces (hidden in production
  *   to avoid exposing source to the browser).
- * - `define` injects `APP_VERSION` for observability.
  */
 export default defineConfig(({ mode }) => ({
   server: {
@@ -19,7 +17,7 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     strictPort: false,
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -34,24 +32,18 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: {
-          // React core
           "react-vendor": ["react", "react-dom", "react-router-dom"],
-          // State / data
           "data-vendor": [
             "@tanstack/react-query",
             "react-hook-form",
             "@hookform/resolvers",
             "zod",
           ],
-          // Supabase
           "supabase-vendor": ["@supabase/supabase-js"],
-          // Heavy export libs (lazy-loaded where possible)
           "pdf-vendor": ["jspdf", "jspdf-autotable"],
           "excel-vendor": ["exceljs"],
           "charts-vendor": ["recharts"],
-          // Date utilities
           "date-vendor": ["date-fns"],
-          // Sentry
           "observability-vendor": ["@sentry/react"],
         },
       },

@@ -68,7 +68,7 @@ export default function CotisationsReunionView({ reunionId, exerciceId }: Cotisa
           .eq('exercice_id', exerciceId)
           .eq('actif', true);
         if (error) throw error;
-        return (data || []).map((d: any) => d.cotisations_types).filter(Boolean);
+        return (data || []).map((d: unknown) => d.cotisations_types).filter(Boolean);
       }
       // Fallback si pas d'exercice
       const { data, error } = await supabase

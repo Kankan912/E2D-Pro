@@ -47,8 +47,7 @@ export function CotisationsTypesManager() {
     queryKey: ["cotisations_types"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("cotisations_types")
-        .select("*")
+        .from('cotisations_types').select('id, nom, description, montant_defaut, obligatoire, association_id, created_at')
         .order("nom");
       
       if (error) throw error;

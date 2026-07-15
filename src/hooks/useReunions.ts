@@ -42,8 +42,7 @@ export const useReunions = () => {
     queryKey: ["reunions"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("reunions")
-        .select("*")
+        .from('reunions').select('id, date_reunion, type_reunion, sujet, ordre_du_jour, statut, association_id, created_at, updated_at')
         .order("date_reunion", { ascending: false });
 
       if (error) throw error;

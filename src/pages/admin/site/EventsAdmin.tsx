@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { EventBudgetManager } from "@/components/EventBudgetManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +34,7 @@ export default function EventsAdmin() {
   const updateCarouselConfig = useUpdateEventsCarouselConfig();
   
   const [open, setOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<any>(null);
+  const [editingEvent, setEditingEvent] = useState<unknown>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const {
@@ -71,7 +72,7 @@ export default function EventsAdmin() {
     setEditingEvent(null);
   };
 
-  const handleEdit = (event: any) => {
+  const handleEdit = (event: unknown) => {
     setEditingEvent(event);
     reset({
       titre: event.titre ?? "",
@@ -208,7 +209,7 @@ export default function EventsAdmin() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="">Aucun album lié</option>
-                  {(galleryAlbums as any[]).map((album: any) => (
+                  {(galleryAlbums as unknown[]).map((album: unknown) => (
                     <option key={album.id} value={album.id}>{album.titre}</option>
                   ))}
                 </select>

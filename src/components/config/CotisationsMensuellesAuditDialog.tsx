@@ -43,14 +43,14 @@ export function CotisationsMensuellesAuditDialog({ open, onOpenChange, exerciceI
       const [membresRes, profilesRes] = await Promise.all([
         membreIds.length
           ? supabase.from('membres').select('id, nom, prenom').in('id', membreIds)
-          : Promise.resolve({ data: [] as any[], error: null }),
+          : Promise.resolve({ data: [] as unknown[], error: null }),
         userIds.length
           ? supabase.from('profiles').select('id, nom, prenom').in('id', userIds)
-          : Promise.resolve({ data: [] as any[], error: null }),
+          : Promise.resolve({ data: [] as unknown[], error: null }),
       ]);
 
-      const membresMap = new Map((membresRes.data ?? []).map((m: any) => [m.id, `${m.prenom} ${m.nom}`]));
-      const profilesMap = new Map((profilesRes.data ?? []).map((p: any) => [p.id, `${p.prenom ?? ''} ${p.nom ?? ''}`.trim() || 'Utilisateur']));
+      const membresMap = new Map((membresRes.data ?? []).map((m: unknown) => [m.id, `${m.prenom} ${m.nom}`]));
+      const profilesMap = new Map((profilesRes.data ?? []).map((p: unknown) => [p.id, `${p.prenom ?? ''} ${p.nom ?? ''}`.trim() || 'Utilisateur']));
 
       return (audits as AuditRow[]).map(a => ({
         ...a,

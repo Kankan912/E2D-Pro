@@ -18,7 +18,7 @@ import MatchEffectifsManager from "@/components/MatchEffectifsManager";
 interface MatchDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  match: any;
+  match: unknown;
   matchType: "e2d" | "phoenix";
 }
 

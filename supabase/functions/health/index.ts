@@ -17,7 +17,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
  */
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "https://e2d-pro.vercel.app",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Cache-Control": "no-store",
 };

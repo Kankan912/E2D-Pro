@@ -31,7 +31,7 @@ const POSTES = ['Gardien', 'Défenseur', 'Milieu', 'Attaquant'];
 export default function MatchEffectifsManager({ matchId }: MatchEffectifsManagerProps) {
   const queryClient = useQueryClient();
   const { members } = useMembers();
-  const membresE2D = (members || []).filter((m: any) => m.est_membre_e2d && m.statut === 'actif');
+  const membresE2D = (members || []).filter((m: unknown) => m.est_membre_e2d && m.statut === 'actif');
 
   const [activeTab, setActiveTab] = useState<'e2d' | 'adverse'>('e2d');
   const [newNom, setNewNom] = useState('');
@@ -43,8 +43,7 @@ export default function MatchEffectifsManager({ matchId }: MatchEffectifsManager
     queryKey: ['match-joueurs', matchId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('match_joueurs')
-        .select('*')
+        .from('match_joueurs').select('id, match_id, membre_id, poste, note, created_at')
         .eq('match_id', matchId)
         .order('numero', { ascending: true });
       if (error) throw error;
@@ -80,7 +79,7 @@ export default function MatchEffectifsManager({ matchId }: MatchEffectifsManager
 
   const handleAddE2D = () => {
     if (!selectedMembreId) return;
-    const membre = membresE2D.find((m: any) => m.id === selectedMembreId);
+    const membre = membresE2D.find((m: unknown) => m.id === selectedMembreId);
     if (!membre) return;
     addJoueur.mutate({
       match_id: matchId,
@@ -116,7 +115,7 @@ export default function MatchEffectifsManager({ matchId }: MatchEffectifsManager
 
   // Filter out already-added members
   const availableMembers = membresE2D.filter(
-    (m: any) => !joueursE2D.some(j => j.membre_id === m.id)
+    (m: unknown) => !joueursE2D.some(j => j.membre_id === m.id)
   );
 
   return (
@@ -153,7 +152,7 @@ export default function MatchEffectifsManager({ matchId }: MatchEffectifsManager
                 <Select value={selectedMembreId} onValueChange={setSelectedMembreId}>
                   <SelectTrigger className="h-9"><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
                   <SelectContent>
-                    {availableMembers.map((m: any) => (
+                    {availableMembers.map((m: unknown) => (
                       <SelectItem key={m.id} value={m.id}>{m.prenom} {m.nom}</SelectItem>
                     ))}
                   </SelectContent>

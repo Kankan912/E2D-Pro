@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { DashboardFinancierGlobal } from "@/components/DashboardFinancierGlobal";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePersonalSummary } from "@/hooks/usePersonalData";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

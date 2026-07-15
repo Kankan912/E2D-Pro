@@ -9,7 +9,7 @@ import { escapeHtml } from "../_shared/email-utils.ts";
 // ---------------------------------------------------------------------------
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "https://e2d-pro.vercel.app",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 

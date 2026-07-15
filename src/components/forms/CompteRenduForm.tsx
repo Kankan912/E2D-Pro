@@ -38,9 +38,9 @@ export default function CompteRenduForm({
   onSuccess,
   onCancel,
 }: CompteRenduFormProps) {
-  const [points, setPoints] = useState<any[]>([]);
+  const [points, setPoints] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(false);
-  const [editingPoint, setEditingPoint] = useState<any>(null);
+  const [editingPoint, setEditingPoint] = useState<unknown>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -114,7 +114,7 @@ export default function CompteRenduForm({
     }
   };
 
-  const handleEditPoint = (point: any) => {
+  const handleEditPoint = (point: unknown) => {
     setEditingPoint(point);
     form.reset({ numero_ordre: point.numero_ordre, sujet: point.sujet, description: point.description || '', resolution: point.resolution || '', decisions: point.decisions || '' });
   };

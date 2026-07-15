@@ -54,7 +54,7 @@ export default function PretsAlertes({ onViewDetails }: PretsAlertesProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {pretsEnRetard.slice(0, 5).map((pret: any) => {
+        {pretsEnRetard.slice(0, 5).map((pret: unknown) => {
           const joursRetard = differenceInDays(new Date(), new Date(pret.echeance));
           const totalDu = pret.montant_total_du || (pret.montant * (1 + (pret.taux_interet || 5) / 100));
           const resteAPayer = totalDu - (pret.montant_paye || 0);

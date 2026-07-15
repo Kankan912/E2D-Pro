@@ -32,7 +32,7 @@ export function useExerciceCotisationConfig(exerciceId?: string) {
       ? ['exercice-cotisation-config', exerciceId]
       : ['exercice-cotisation-config-all'],
     queryFn: async () => {
-      let query = supabase.from('exercice_cotisation_config').select('*');
+      let query = supabase.from('exercice_cotisation_config').select('id, exercice_id, cotisation_mensuelle_montant, fond_sport_montant, fond_investissement_montant, fond_caisse_montant, nb_mois_exercice, created_at, updated_at');
       if (exerciceId) query = query.eq('exercice_id', exerciceId);
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;

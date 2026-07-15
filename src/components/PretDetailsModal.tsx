@@ -62,8 +62,7 @@ export default function PretDetailsModal({ pretId, open, onClose }: PretDetailsM
     queryKey: ['pret-paiements-details', pretId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('prets_paiements')
-        .select('*')
+        .from('prets_paiements').select('id, pret_id, montant_paye, date_paiement, mode_paiement, type_paiement, notes, created_at, updated_at')
         .eq('pret_id', pretId)
         .order('date_paiement', { ascending: false });
       if (error) throw error;
@@ -385,7 +384,7 @@ export default function PretDetailsModal({ pretId, open, onClose }: PretDetailsM
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {reconductions.map((recon: any, index: number) => (
+                      {reconductions.map((recon: unknown, index: number) => (
                         <TableRow key={recon.id}>
                           <TableCell className="font-medium">{reconductions.length - index}</TableCell>
                           <TableCell>{format(new Date(recon.date_reconduction), 'dd/MM/yyyy')}</TableCell>
@@ -441,7 +440,7 @@ export default function PretDetailsModal({ pretId, open, onClose }: PretDetailsM
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paiements.map((p: any) => (
+                      {paiements.map((p: unknown) => (
                         <TableRow key={p.id}>
                           <TableCell>{format(new Date(p.date_paiement), 'dd/MM/yyyy')}</TableCell>
                           <TableCell className="font-medium text-green-600">{formatFCFA(p.montant_paye)}</TableCell>

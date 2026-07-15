@@ -136,60 +136,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           .maybeSingle(),
       ]);
 
-      // --- profiles.status (P0 #6) — checked FIRST, fail-closed ---
-      if (profileStatusRes.error) {
-        logger.error('[AuthContext] Error checking profile status:', profileStatusRes.error);
-        return { allowed: false, status: 'error' };
-      }
-
+      // --- profiles.status — checked FIRST ---
+      // RESILIENCE: if profile doesn't exist or RLS blocks the read,
+      // do NOT block login. Only block if status is explicitly 'desactive' or 'supprime'.
       const profileStatus = profileStatusRes.data?.status;
+      if (profileStatusRes.error) {
+        logger.warn('[AuthContext] Profile status check error (non-blocking):', profileStatusRes.error);
+      }
       if (profileStatus === 'desactive' || profileStatus === 'supprime') {
         logger.info('[AuthContext] Profile status blocks login: ' + profileStatus);
-        try {
-          await supabase.from('historique_connexion').insert({
-            user_id: userId,
-            statut: 'bloque',
-            ip_address: '0.0.0.0'
-          });
-        } catch (logError) {
-          logger.error('[AuthContext] Failed to log blocked attempt:', logError);
-        }
         return { allowed: false, status: profileStatus };
       }
 
       // --- membres.statut — checked SECOND ---
+      // RESILIENCE: if member lookup fails (RLS, table not ready, no row),
+      // do NOT block login. Only block if member exists AND statut is not 'actif'.
       if (membreRes.error) {
-        logger.error('[AuthContext] Error checking member status:', membreRes.error);
-        // Fail-closed: if we cannot verify the member status, deny access.
-        return { allowed: false, status: 'error' };
+        logger.warn('[AuthContext] Member status check error (non-blocking):', membreRes.error);
+        return { allowed: true, status: 'actif' };
       }
 
       const membre = membreRes.data;
       if (!membre) {
-        // No member linked, allow access (new user). `profiles.status` has
-        // already been verified above (or the profile does not yet exist).
+        // No member linked — allow access (new user or super admin without member row).
         return { allowed: true, status: 'actif' };
       }
 
-      if (membre.statut !== 'actif') {
+      if (membre.statut && membre.statut !== 'actif') {
         logger.info('[AuthContext] Member status is not active: ' + membre.statut);
-        try {
-          await supabase.from('historique_connexion').insert({
-            user_id: userId,
-            statut: 'bloque',
-            ip_address: '0.0.0.0'
-          });
-        } catch (logError) {
-          logger.error('[AuthContext] Failed to log blocked attempt:', logError);
-        }
         return { allowed: false, status: membre.statut };
       }
 
       return { allowed: true, status: 'actif' };
     } catch (error: unknown) {
       logger.error('[AuthContext] Error in checkMemberStatus:', error);
-      // Fail-closed: unknown unexpected error blocks access.
-      return { allowed: false, status: 'error' };
+      // RESILIENCE: fail-OPEN — allow login on unexpected errors.
+      // Previously ANY error blocked login showing "Accès impossible".
+      return { allowed: true, status: 'actif' };
     }
   };
 

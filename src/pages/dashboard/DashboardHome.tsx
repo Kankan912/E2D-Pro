@@ -124,7 +124,8 @@ const DashboardHome = () => {
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold">
-              {userRole === 'administrateur' && '👑 Super Administrateur'}
+              {userRole === 'administrateur' && '👑 Administrateur'}
+              {userRole === 'super_admin' && '👑 Super Administrateur'}
               {userRole === 'tresorier' && '💰 Trésorier'}
               {userRole === 'secretaire_general' && '📝 Secrétaire Général'}
               {userRole === 'responsable_sportif' && '⚽ Responsable Sportif'}

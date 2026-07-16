@@ -136,7 +136,7 @@ export function DashboardSidebar() {
   const { userRole } = useAuth();
   const { open } = useSidebar();
   const location = useLocation();
-  const isAdministrateur = userRole === 'administrateur';
+  const isAdministrateur = userRole === 'administrateur' || userRole === 'super_admin';
 
   // Compter les prêts en retard pour le badge
   const { data: pretsEnRetardCount } = useQuery({
@@ -248,7 +248,8 @@ export function DashboardSidebar() {
         </div>
         {open && userRole && (
           <Badge variant="outline" className="w-full justify-center text-xs">
-            {userRole === 'administrateur' && '👑 Super Admin'}
+            {userRole === 'administrateur' && '👑 Administrateur'}
+            {userRole === 'super_admin' && '👑 Super Admin'}
             {userRole === 'tresorier' && '💰 Trésorier'}
             {userRole === 'secretaire_general' && '📝 Secrétaire Général'}
             {userRole === 'responsable_sportif' && '⚽ Resp. Sportif'}

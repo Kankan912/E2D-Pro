@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 export const usePermissions = () => {
   const { user, userRole, permissions, loading } = useAuth();
   const { toast } = useToast();
-  const isAdministrateur = userRole === 'administrateur';
+  const isAdministrateur = userRole === 'administrateur' || userRole === 'super_admin';
 
   const hasPermission = (resource: string, permission: string) => {
     if (isAdministrateur) return true;

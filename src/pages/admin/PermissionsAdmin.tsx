@@ -42,7 +42,7 @@ const PermissionsAdmin = () => {
   const { toast } = useToast();
   const [selectedRole, setSelectedRole] = useState<string>("");
 
-  const isAdmin = userRole === "administrateur";
+  const isAdmin = userRole === "administrateur" || userRole === "super_admin";
 
   // Helper pour vérifier si un rôle a une permission
   const hasRolePermission = (roleId: string, resource: string, permission: string): boolean => {
@@ -170,6 +170,7 @@ const PermissionsAdmin = () => {
           <CardContent>
             <Badge variant="default" className="text-lg">
               {userRole === 'administrateur' && '👑 Admin'}
+              {userRole === 'super_admin' && '👑 Super Admin'}
               {userRole === 'tresorier' && '💰 Trésorier'}
               {userRole === 'secretaire_general' && '📝 Secrétaire'}
               {userRole === 'responsable_sportif' && '⚽ Sport'}

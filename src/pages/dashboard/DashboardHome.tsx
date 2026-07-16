@@ -27,7 +27,7 @@ const DashboardHome = () => {
     { title: "Mes Aides", description: "Aides reçues", icon: HandHeart, href: "/dashboard/my-aides", color: "text-pink-500" },
   ];
 
-  const isAdmin = userRole === "administrateur";
+  const isAdmin = userRole === "administrateur" || userRole === "super_admin";
   const hasAdminAccess = hasAnyPermission([
     { resource: 'membres', permission: 'read' },
     { resource: 'prets', permission: 'read' },

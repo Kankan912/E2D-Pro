@@ -1,30 +1,26 @@
 -- =============================================================================
--- CORRECTION DU RÔLE SUPER ADMIN
+-- CORRECTION DÉFINITIVE DU RÔLE SUPER ADMIN
 -- =============================================================================
--- Ce script corrige le rôle de l'utilisateur admin@e2d-connect.com
--- pour qu'il soit "super_admin" au lieu de "membre".
---
--- À exécuter dans Supabase → SQL Editor → New query → RUN
+-- Problèmes identifiés :
+-- 1. Le trigger handle_new_user crée une 2ème ligne user_roles avec role_id=membre
+-- 2. La table membres_roles n'existe pas → Profile.tsx affiche "Membre" par défaut
+-- 3. Il faut nettoyer les doublons dans user_roles
 -- =============================================================================
 
 BEGIN;
 
--- 1. S'assurer que le rôle "super_admin" existe dans la table roles
-INSERT INTO public.roles (name, description)
-VALUES ('super_admin', 'Super administrateur (tous les droits)')
-ON CONFLICT (name) DO NOTHING;
-
--- 2. Récupérer l'ID du rôle super_admin
--- 3. Mettre à jour user_roles pour assigner super_admin à l'utilisateur
-UPDATE public.user_roles
-SET 
-  role = 'super_admin'::app_role,
-  role_id = (SELECT id FROM public.roles WHERE name = 'super_admin' LIMIT 1)
+-- 1. Supprimer TOUTES les lignes user_roles pour ce utilisateur
+DELETE FROM public.user_roles
 WHERE user_id = (
   SELECT id FROM auth.users WHERE email = 'admin@e2d-connect.com' LIMIT 1
 );
 
--- 4. Si aucune ligne n'existe dans user_roles, en créer une
+-- 2. S'assurer que le rôle super_admin existe
+INSERT INTO public.roles (name, description)
+VALUES ('super_admin', 'Super administrateur (tous les droits)')
+ON CONFLICT (name) DO NOTHING;
+
+-- 3. Insérer UNE SEULE ligne user_roles avec super_admin
 INSERT INTO public.user_roles (user_id, role, role_id, association_id)
 SELECT 
   u.id,
@@ -34,13 +30,9 @@ SELECT
 FROM auth.users u
 CROSS JOIN public.roles r
 WHERE u.email = 'admin@e2d-connect.com'
-  AND r.name = 'super_admin'
-  AND NOT EXISTS (
-    SELECT 1 FROM public.user_roles ur 
-    WHERE ur.user_id = u.id
-  );
+  AND r.name = 'super_admin';
 
--- 5. Mettre à jour le profil pour s'assurer qu'il est actif
+-- 4. Mettre à jour le profil
 UPDATE public.profiles
 SET 
   statut = 'actif',
@@ -51,12 +43,44 @@ WHERE id = (
   SELECT id FROM auth.users WHERE email = 'admin@e2d-connect.com' LIMIT 1
 );
 
--- 6. Mettre à jour le membre lié
+-- 5. Mettre à jour le membre
 UPDATE public.membres
 SET statut = 'actif'
 WHERE user_id = (
   SELECT id FROM auth.users WHERE email = 'admin@e2d-connect.com' LIMIT 1
 );
+
+-- 6. Ajouter TOUTES les permissions pour le rôle super_admin dans role_permissions
+-- (au cas où role_permissions est vide pour super_admin)
+INSERT INTO public.role_permissions (role_id, resource, permission, granted)
+SELECT r.id, res.resource, res.permission, true
+FROM public.roles r
+CROSS JOIN (
+  VALUES 
+    ('membres', 'read'), ('membres', 'write'), ('membres', 'delete'),
+    ('cotisations', 'read'), ('cotisations', 'write'), ('cotisations', 'delete'),
+    ('epargnes', 'read'), ('epargnes', 'write'),
+    ('prets', 'read'), ('prets', 'write'), ('prets', 'delete'),
+    ('prets_requests', 'read'), ('prets_requests', 'write'), ('prets_requests', 'validate'), ('prets_requests', 'configure'),
+    ('aides', 'read'), ('aides', 'write'), ('aides', 'delete'),
+    ('reunions', 'read'), ('reunions', 'write'), ('reunions', 'delete'),
+    ('presences', 'read'), ('presences', 'write'),
+    ('sanctions', 'read'), ('sanctions', 'write'),
+    ('caisse', 'read'), ('caisse', 'write'),
+    ('donations', 'read'), ('donations', 'write'),
+    ('adhesions', 'read'), ('adhesions', 'write'),
+    ('notifications', 'read'), ('notifications', 'write'),
+    ('roles', 'read'), ('roles', 'write'),
+    ('config', 'read'), ('config', 'write'),
+    ('stats', 'read'),
+    ('site', 'read'), ('site', 'write'),
+    ('sport_e2d', 'read'), ('sport_e2d', 'write'),
+    ('sport_phoenix', 'read'), ('sport_phoenix', 'write'),
+    ('configuration', 'read'), ('configuration', 'write'),
+    ('monitoring', 'read'), ('monitoring', 'write')
+) AS res(resource, permission)
+WHERE r.name = 'super_admin'
+ON CONFLICT (role_id, resource, permission) DO NOTHING;
 
 COMMIT;
 
@@ -64,23 +88,20 @@ COMMIT;
 -- VÉRIFICATION
 -- =============================================================================
 SELECT 
-  u.email AS email,
+  u.email,
   ur.role::text AS role_enum,
   r.name AS role_name,
-  p.statut AS profile_statut,
-  p.status AS profile_status,
-  m.statut AS membre_statut,
-  '✅ Super Admin configuré' AS resultat
+  (SELECT count(*) FROM public.role_permissions rp WHERE rp.role_id = r.id) AS nb_permissions,
+  '✅ Super Admin configuré avec ' || (SELECT count(*) FROM public.role_permissions rp WHERE rp.role_id = r.id) || ' permissions' AS resultat
 FROM auth.users u
-LEFT JOIN public.user_roles ur ON ur.user_id = u.id
-LEFT JOIN public.roles r ON r.id = ur.role_id
-LEFT JOIN public.profiles p ON p.id = u.id
-LEFT JOIN public.membres m ON m.user_id = u.id
+JOIN public.user_roles ur ON ur.user_id = u.id
+JOIN public.roles r ON r.id = ur.role_id
 WHERE u.email = 'admin@e2d-connect.com';
 
 -- =============================================================================
--- ℹ️ APRÈS EXÉCUTION :
+-- IMPORTANT : Après exécution :
 -- 1. Déconnectez-vous du site
--- 2. Reconnectez-vous avec admin@e2d-connect.com
--- 3. Vous devriez voir "👑 Super Admin" et le menu admin complet
+-- 2. Videez le cache du navigateur (Ctrl+Shift+R)
+-- 3. Reconnectez-vous avec admin@e2d-connect.com
+-- 4. Vous devriez voir "👑 Super Admin" et le menu admin complet
 -- =============================================================================

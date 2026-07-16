@@ -163,20 +163,20 @@ export default function MembresAdmin() {
             if (role_id && role_id !== 'none') {
               // Supprimer l'ancien rôle
               await supabase
-                .from('membres_roles')
+                .from('user_roles')
                 .delete()
-                .eq('membre_id', selectedMember.id);
+                .eq('user_id', selectedMember.user_id || selectedMember.id);
               
               // Insérer le nouveau rôle
               await supabase
-                .from('membres_roles')
-                .insert({ membre_id: selectedMember.id, role_id });
+                .from('user_roles')
+                .insert({ user_id: selectedMember.user_id || selectedMember.id, role_id });
             } else if (role_id === 'none') {
               // Supprimer le rôle si "Aucun" sélectionné
               await supabase
-                .from('membres_roles')
+                .from('user_roles')
                 .delete()
-                .eq('membre_id', selectedMember.id);
+                .eq('user_id', selectedMember.user_id || selectedMember.id);
             }
             setShowForm(false);
             setSelectedMember(null);
@@ -191,8 +191,8 @@ export default function MembresAdmin() {
             // Assigner le rôle si sélectionné
             if (role_id && role_id !== 'none' && newMember?.id) {
               await supabase
-                .from('membres_roles')
-                .insert({ membre_id: newMember.id, role_id });
+                .from('user_roles')
+                .insert({ user_id: newMember.user_id || newMember.id, role_id });
             }
             setShowForm(false);
           },

@@ -79,9 +79,9 @@ export default function MemberForm({ open, onOpenChange, member, onSubmit, isLoa
     queryFn: async () => {
       if (!member?.id) return null;
       const { data, error } = await supabase
-        .from('membres_roles')
+        .from('user_roles')
         .select('role_id')
-        .eq('membre_id', member.id)
+        .eq('user_id', member.user_id || member.id)
         .maybeSingle();
       if (error) throw error;
       if (data) {

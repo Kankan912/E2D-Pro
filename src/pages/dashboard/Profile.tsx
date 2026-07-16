@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { useQuery } from "@tanstack/react-query";
 
 const Profile = () => {
-  const { profile, user } = useAuth();
+  const { profile, user, userRole } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
@@ -36,30 +36,19 @@ const Profile = () => {
   }, [profile]);
 
   // Récupérer les rôles de l'utilisateur
-  const { data: userRoles = [] } = useQuery({
-    queryKey: ["user-roles", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      
-      // Chercher d'abord le membre lié à cet utilisateur
-      const { data: membre } = await supabase
-        .from("membres")
-        .select("id")
-        .eq("user_id", user.id)
-        .single();
-
-      if (!membre) return [];
-
-      const { data, error } = await supabase
-        .from("membres_roles")
-        .select("role:roles(id, name, description)")
-        .eq("membre_id", membre.id);
-
-      if (error) throw error;
-      return data?.map((mr: unknown) => mr.role) || [];
-    },
-    enabled: !!user?.id,
-  });
+  // Utiliser userRole directement depuis AuthContext (source de vérité)
+  // Au lieu de faire une requête sur membres_roles (table qui n'existe pas)
+  const roleLabels: Record<string, string> = {
+    'super_admin': '👑 Super Admin',
+    'administrateur': '👑 Administrateur',
+    'tresorier': '💰 Trésorier',
+    'secretaire_general': '📝 Secrétaire Général',
+    'secretaire': '📝 Secrétaire',
+    'responsable_sportif': '⚽ Responsable Sportif',
+    'censeur': '⚖️ Censeur',
+    'commissaire_comptes': '🔍 Commissaire aux Comptes',
+    'membre': '👤 Membre',
+  };
 
   // Récupérer l'historique de connexion
   const { data: connexionHistory = [] } = useQuery({
@@ -410,12 +399,10 @@ const Profile = () => {
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-2">Rôles</p>
                 <div className="flex flex-wrap gap-2">
-                  {userRoles.length > 0 ? (
-                    userRoles.map((role: unknown) => (
-                      <Badge key={role.id} variant="secondary">
-                        {role.name}
-                      </Badge>
-                    ))
+                  {userRole ? (
+                    <Badge variant="secondary">
+                      {roleLabels[userRole] || `📋 ${userRole}`}
+                    </Badge>
                   ) : (
                     <Badge variant="outline">Membre</Badge>
                   )}

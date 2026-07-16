@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // + periodic re-check could race).
   const forcedSignOutRef = useRef(false);
 
-  const withTimeout = async <T,>(promise: Promise<T>, label: string, timeoutMs = 8000): Promise<T> => {
+  const withTimeout = async <T,>(promise: Promise<T>, label: string, timeoutMs = 30000): Promise<T> => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new Error(`${label} timeout after ${timeoutMs}ms`)), timeoutMs);
@@ -182,20 +182,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // Handle expired/invalid refresh token gracefully
+        // RESILIENCE: Only sign out on explicit SIGNED_OUT event.
+        // TOKEN_REFRESHED without session can happen momentarily during
+        // initial load — do NOT sign out, just skip this event.
         if (event === 'TOKEN_REFRESHED' && !session) {
-          if (!isSigningOut) {
-            isSigningOut = true;
-            logger.info('[AuthContext] Token refresh failed — signing out');
-            setTimeout(() => {
-              signOut();
-              toast({
-                title: "Session expirée",
-                description: "Votre session a expiré. Veuillez vous reconnecter.",
-                variant: "default"
-              });
-            }, 0);
-          }
+          logger.warn('[AuthContext] TOKEN_REFRESHED without session — ignoring (not signing out)');
           return;
         }
 
@@ -381,7 +372,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       logger.success('[AuthContext] Permissions loaded: ' + userPerms.length);
     } catch (error: unknown) {
       logger.error('[AuthContext] Error fetching user data:', error);
-      loadedUserIdRef.current = null;
+      // RESILIENCE: Do NOT sign out on profile fetch error.
+      // The user is authenticated — let them in with minimal profile.
+      // Previously this left the user in an undefined state causing instant redirect.
+      loadedUserIdRef.current = userId;
     } finally {
       if (loadingUserIdRef.current === userId) {
         loadingUserIdRef.current = null;

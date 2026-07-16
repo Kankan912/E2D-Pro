@@ -314,7 +314,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .maybeSingle(),
           supabase
             .from('user_roles')
-            .select('role_id, roles(name)')
+            .select('role, role_id, roles(name)')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -364,8 +364,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setMustChangePassword(false);
       }
 
-      logger.success('[AuthContext] Role data received: ' + roleData?.roles?.name);
-      setUserRole(roleData?.roles?.name || null);
+      logger.success('[AuthContext] Role data received: ' + roleData?.roles?.name + ' (enum: ' + roleData?.role + ')');
+      // RESILIENCE: Try roles(name) first, then fallback to role enum, then fallback to direct query
+      let resolvedRole = roleData?.roles?.name || roleData?.role || null;
+
+      // If still no role, try a direct query without join
+      if (!resolvedRole) {
+        logger.warn('[AuthContext] Role not found via join — trying direct query');
+        const { data: directRole } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        resolvedRole = directRole?.role || null;
+      }
+
+      setUserRole(resolvedRole);
 
       setPermissions(userPerms);
       loadedUserIdRef.current = userId;
